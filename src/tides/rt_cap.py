@@ -7,39 +7,39 @@ Molecular Orbital Complex Absorbing Potential (CAP)
 
 class NOSCF_CAP:
     def __init__(self, expconst, emin, prefac=1, maxval=100):
-	self.expconst = expconst
-	self.emin = emin
-	self.prefac = prefac
-	self.maxval = maxval
+        self.expconst = expconst
+        self.emin = emin
+        self.prefac = prefac
+        self.maxval = maxval
 
-	#everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
+        #everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
     def calculate_cap(self, rt_scf, fock, noscf_orbitals):
-	# Construct fock_orth without CAP, this gives us the energies and the MO coefficients
-	fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
-	mo_energy, mo_orth = np.linalg.eigh(fock_orth)
-	
-	damping_diagonal = []
+        # Construct fock_orth without CAP, this gives us the energies and the MO coefficients
+        fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
+        mo_energy, mo_orth = np.linalg.eigh(fock_orth)
 
-	for energy in mo_energy:
-	    energy_corrected = energy - self.emin
+        damping_diagonal = []
 
-	    if energy_corrected > 0:
-		damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
-		if damping_term < (-1 * self.maxval):
-		    damping_term = -1 * self.maxval
-		damping_diagonal.append(damping_term)
-	    else:
-		damping_diagonal.append(0)
+        for energy in mo_energy:
+            energy_corrected = energy - self.emin
 
-	damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-	
-	damping_matrix = np.diag(damping_diagonal)
-	damping_matrix = np.dot(mo_orth, np.dot(damping_matrix, np.conj(mo_orth.T)))
+            if energy_corrected > 0:
+                damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
+                if damping_term < (-1 * self.maxval):
+                    damping_term = -1 * self.maxval
+                damping_diagonal.append(damping_term)
+                else:
+                damping_diagonal.append(0)
 
-	transform = inv(rt_scf.orth.T)
-	damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-	S_AO = np.dot(damping_matrix.T, damping_matrix)
-	return 1j * np.dot(noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, noscf_orbitals))))
+        damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
+
+        damping_matrix = np.diag(damping_diagonal)
+        damping_matrix = np.dot(mo_orth, np.dot(damping_matrix, np.conj(mo_orth.T)))
+
+        transform = inv(rt_scf.orth.T)
+        damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
+        S_AO = np.dot(damping_matrix.T, damping_matrix)
+        return 1j * np.dot(noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, noscf_orbitals))))
 
 
 class MOCAP:
