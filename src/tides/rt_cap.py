@@ -28,7 +28,7 @@ class NOSCF_CAP:
                 if damping_term < (-1 * self.maxval):
                     damping_term = -1 * self.maxval
                 damping_diagonal.append(damping_term)
-                else:
+            else:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
