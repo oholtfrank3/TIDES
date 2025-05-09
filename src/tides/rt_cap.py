@@ -13,7 +13,7 @@ class NOSCF_CAP:
         self.maxval = maxval
 
         #everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
-    def calculate_cap(self, rt_scf, fock, noscf_orbitals):
+    def calculate_cap(self, rt_scf, fock):
         # Construct fock_orth without CAP, this gives us the energies and the MO coefficients
         fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
         mo_energy, mo_orth = np.linalg.eigh(fock_orth)
