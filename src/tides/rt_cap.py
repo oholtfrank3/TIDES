@@ -41,6 +41,11 @@ class NOSCF_CAP:
         S_AO = np.dot(damping_matrix.T, damping_matrix)
         return 1j * np.dot(noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, noscf_orbitals))))
 
+    def calculate_potential(self, rt_scf):
+        if rt_scf.nmat == 1:
+            return self.calculate_cap(rt_sct, rt_scf.fock_ao)
+        else:
+            return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
 
 class MOCAP:
     def __init__(self, expconst, emin, prefac=1, maxval=100):
