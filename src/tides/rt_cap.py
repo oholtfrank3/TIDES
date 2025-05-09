@@ -39,7 +39,7 @@ class NOSCF_CAP:
         transform = inv(rt_scf.orth.T)
         damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
         S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
-        return 1j * np.dot(noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, noscf_orbitals))))
+        return 1j * np.dot(self.noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.noscf_orbitals))))
 
     def calculate_potential(self, rt_scf):
         if rt_scf.nmat == 1:
