@@ -75,15 +75,16 @@ class NOSCF_CAP:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
-        damping_matrix = np.diag(damping_diagonal)
-        damping_matrix = np.dot(noscf_orth, np.dot(damping_matrix, np.conj(noscf_orth.T)))
-        return 1j * damping_matrix
+	eigvals_noscf, eigvecs_noscf = np.linalg.eigh(noscf_orbitals)
+	s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_noscf))
+	X_noscf = np.dot(eigvecs_noscf, s_inv_sqrt)
+	s_noscf = np.dot(eigvecs_noscf)
 
-#        transform = inv(rt_scf.orth.T)
-#        damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-#        S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
-#       return 1j * np.dot(self.noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.noscf_orbitals))))
+#        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
+        damping_matrix = np.diag(damping_diagonal)
+	damping_matrix_ao_noscf = np.dot(noscf_orbitals, np.dot(damping_matrix, np.conj(noscf_orbitals.T))
+	damping_matrix_oao_noscf = np.dot(s_noscf, np.dot(X_noscf.T, np.dot(damping_matrix_ao_noscf, np.dot(X_noscf, s_noscf)))) 
+        return 1j * damping_matrix_oao_noscf
 
     def calculate_potential(self, rt_scf):
         if rt_scf.nmat == 1:
