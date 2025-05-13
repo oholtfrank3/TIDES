@@ -49,14 +49,15 @@ class DIMER_CAP:
 			return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
 
 class NOSCF_CAP:
-    def __init__(self, expconst, emin, prefac=1, maxval=100):
+    def __init__(self, expconst, emin, noscf_orbitals, prefac=1, maxval=100):
         self.expconst = expconst
         self.emin = emin
         self.prefac = prefac
         self.maxval = maxval
+	self.noscf_orbitals = noscf_orbitals
 
         #everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
-    def calculate_cap(self, rt_scf, noscf_orbitals, fock):
+    def calculate_cap(self, rt_scf, fock):
         # Construct fock_orth without CAP, this gives us the energies and the MO coefficients
         fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
         mo_energy, mo_orth = np.linalg.eigh(fock_orth)
@@ -75,22 +76,22 @@ class NOSCF_CAP:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-        eigvals_noscf, eigvecs_noscf = np.linalg.eigh(noscf_orbitals)
+        eigvals_noscf, eigvecs_noscf = np.linalg.eigh(self.noscf_orbitals)
         s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_noscf))
         X_noscf = np.dot(eigvecs_noscf, s_inv_sqrt)
-        s_noscf = np.dot(eigvecs_noscf)
+        s_noscf = np.diag(eigvecs_noscf)
 
 #        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
         damping_matrix = np.diag(damping_diagonal)
-        damping_matrix_ao_noscf = np.dot(noscf_orbitals, np.dot(damping_matrix, np.conj(noscf_orbitals.T))
+        damping_matrix_ao_noscf = np.dot(self.noscf_orbitals, np.dot(damping_matrix, np.conj(self.noscf_orbitals.T)))
         damping_matrix_oao_noscf = np.dot(s_noscf, np.dot(X_noscf.T, np.dot(damping_matrix_ao_noscf, np.dot(X_noscf, s_noscf)))) 
         return 1j * damping_matrix_oao_noscf
 
     def calculate_potential(self, rt_scf):
         if rt_scf.nmat == 1:
-            return self.calculate_cap(rt_scf, self.noscf_orbitals, rt_scf.fock_ao)
+            return self.calculate_cap(rt_scf, self, rt_scf.fock_ao)
         else:
-            return np.stack((self.calculate_cap(rt_scf, self.noscf_orbitals, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, self.noscf_orbitals, rt_scf.fock_ao[1])))
+            return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
 
 class MOCAP:
     def __init__(self, expconst, emin, prefac=1, maxval=100):
