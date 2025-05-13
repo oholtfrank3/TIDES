@@ -6,11 +6,12 @@ Molecular Orbital Complex Absorbing Potential (CAP)
 '''
 
 class DIMER_CAP:
-	def __init__(self,expconst, emin, prefac=1, maxval=100):
+	def __init__(self, dimer, expconst, emin, prefac=1, maxval=100):
 		self.expconst = expconst
 		self.emin = emin
 		self.prefac = prefac
 		self.maxval = maxval
+		self.dimer = dimer
 
 	def calculate_cap(self, rt_scf, fock):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
@@ -37,8 +38,8 @@ class DIMER_CAP:
 		transform = inv(rt_scf.orth.T)
 		damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
 		S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
-		dimer_basis = dimer.mo_coeff
-		damping_matrix_dimer = np.dot(self.dimer_basis.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.dimer_basis))))
+		dimer_basis = self.dimer.mo_coeff
+		damping_matrix_dimer = np.dot(self.mo_coeff.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.dimer.mo_coeff))))
 		return 1j * damping_matrix_dimer
 
 	def calculate_potential(self, rt_scf):
