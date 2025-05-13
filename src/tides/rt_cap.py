@@ -85,7 +85,7 @@ class NOSCF_CAP:
 #        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
         damping_matrix = np.diag(damping_diagonal)
         damping_matrix_ao_noscf = np.dot(self.noscf_orbitals, np.dot(damping_matrix, np.conj(self.noscf_orbitals.T)))
-        S_ao = rt_scf.overlap
+        S_ao = rt_scf._scf.get_ovlp()
         S_noscf = np.dot(self.noscf_orbitals.T.conj(), np.dot(S_ao, self.noscf_orbitals))
         s, U = np.linalg.eigh(S_noscf)
         s_inv_sqrt_noscf = np.dot(U, np.dot(np.diag(1.0/np.sqrt(s)), U.T.conj()))
