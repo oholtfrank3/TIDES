@@ -75,7 +75,7 @@ class NOSCF_CAP:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-        noscf_orth = np.dot(inv(self.noscf_orbitals.orth), self.noscf_orbitals)
+        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
         damping_matrix = np.diag(damping_diagonal)
         damping_matrix = np.dot(noscf_orth, np.dot(damping_matrix, np.conj(noscf_orth.T)))
         return 1j * damping_matrix
