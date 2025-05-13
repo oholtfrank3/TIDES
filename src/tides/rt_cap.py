@@ -88,9 +88,9 @@ class NOSCF_CAP:
         S_ao = rt_scf.overlap
         S_noscf = np.dot(self.noscf_orbitals.T.conj(), np.dot(S_ao, self.noscf_orbitals))
         s, U = np.linalg.eigh(S_noscf)
-        s_inv_sqrt_noscf = np.dot(U, np.dot(np.diag(1.0/np.sqrt(s)), U.T.conj())
+        s_inv_sqrt_noscf = np.dot(U, np.dot(np.diag(1.0/np.sqrt(s)), U.T.conj()))
 
-        damping_matrix_oao_noscf = np.dot(s_inv_sqrt_noscf, np.dot(damping_matrix_ao_noscf, s_inv_sqrt_noscf.T.conj())) 
+        damping_matrix_oao_noscf = np.dot(s_inv_sqrt_noscf, np.dot(damping_matrix_ao_noscf, s_inv_sqrt_noscf.T.conj()))
         return 1j * damping_matrix_oao_noscf
 
     def calculate_potential(self, rt_scf):
