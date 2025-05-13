@@ -89,7 +89,7 @@ class NOSCF_CAP:
 
     def calculate_potential(self, rt_scf):
         if rt_scf.nmat == 1:
-            return self.calculate_cap(rt_scf, self, rt_scf.fock_ao)
+            return self.calculate_cap(rt_scf, rt_scf.fock_ao)
         else:
             return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
 
