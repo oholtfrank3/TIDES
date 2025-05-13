@@ -54,7 +54,7 @@ class NOSCF_CAP:
         self.emin = emin
         self.prefac = prefac
         self.maxval = maxval
-	self.noscf_orbitals = noscf_orbitals
+        self.noscf_orbitals = noscf_orbitals
 
         #everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
     def calculate_cap(self, rt_scf, fock):
