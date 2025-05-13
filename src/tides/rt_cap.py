@@ -75,7 +75,7 @@ class NOSCF_CAP:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-        noscf_orth = np.dot(inv(noscf_orbitals.orth), noscf_orbitals)
+        noscf_orth = np.dot(inv(self.noscf_orbitals.orth), self.noscf_orbitals)
         damping_matrix = np.diag(damping_diagonal)
         damping_matrix = np.dot(noscf_orth, np.dot(damping_matrix, np.conj(noscf_orth.T)))
         return 1j * damping_matrix
@@ -87,9 +87,9 @@ class NOSCF_CAP:
 
     def calculate_potential(self, rt_scf):
         if rt_scf.nmat == 1:
-            return self.calculate_cap(rt_scf, rt_scf.fock_ao)
+            return self.calculate_cap(rt_scf, self.noscf_orbitals, rt_scf.fock_ao)
         else:
-            return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
+            return np.stack((self.calculate_cap(rt_scf, self.noscf_orbitals, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, self.noscf_orbitals, rt_scf.fock_ao[1])))
 
 class MOCAP:
     def __init__(self, expconst, emin, prefac=1, maxval=100):
