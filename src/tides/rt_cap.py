@@ -56,7 +56,7 @@ class NOSCF_CAP:
         self.maxval = maxval
 
         #everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
-    def calculate_cap(self, rt_scf, fock):
+    def calculate_cap(self, rt_scf, noscf_orbitals, fock):
         # Construct fock_orth without CAP, this gives us the energies and the MO coefficients
         fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
         mo_energy, mo_orth = np.linalg.eigh(fock_orth)
@@ -75,14 +75,15 @@ class NOSCF_CAP:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-
+	noscf_orth = np.dot(inv(noscf_orbitals.orth), noscf_orbitals)
         damping_matrix = np.diag(damping_diagonal)
-        damping_matrix = np.dot(mo_orth, np.dot(damping_matrix, np.conj(mo_orth.T)))
+        damping_matrix = np.dot(noscf_orth, np.dot(damping_matrix, np.conj(noscf_orth.T)))
+	return 1j * damping_matrix
 
-        transform = inv(rt_scf.orth.T)
-        damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-        S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
-        return 1j * np.dot(self.noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.noscf_orbitals))))
+#        transform = inv(rt_scf.orth.T)
+#        damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
+#        S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
+#       return 1j * np.dot(self.noscf_orbitals.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.noscf_orbitals))))
 
     def calculate_potential(self, rt_scf):
         if rt_scf.nmat == 1:
