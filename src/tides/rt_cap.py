@@ -39,7 +39,7 @@ class DIMER_CAP:
 		damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
 		S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
 		dimer_basis = self.dimer.mo_coeff
-		damping_matrix_dimer = np.dot(self.mo_coeff.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.dimer.mo_coeff))))
+		damping_matrix_dimer = np.dot(self.dimer.mo_coeff.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.dimer.mo_coeff))))
 		return 1j * damping_matrix_dimer
 
 	def calculate_potential(self, rt_scf):
