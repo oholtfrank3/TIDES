@@ -76,15 +76,21 @@ class NOSCF_CAP:
                 damping_diagonal.append(0)
 
         damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-        eigvals_noscf, eigvecs_noscf = np.linalg.eigh(self.noscf_orbitals)
-        s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_noscf))
-        X_noscf = np.dot(eigvecs_noscf, s_inv_sqrt)
-        s_noscf = np.diag(eigvecs_noscf)
+#	overlap_noscf = np.dot(self.noscf_orbitals.T.conj(), self.noscf_orbitals)
+#        eigvals_noscf, eigvecs_noscf = np.linalg.eigh(overlap_noscf)
+#        s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_noscf))
+#        X_noscf = np.dot(eigvecs_noscf, s_inv_sqrt)
+#        s_noscf = np.diag(eigvecs_noscf)
 
 #        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
         damping_matrix = np.diag(damping_diagonal)
         damping_matrix_ao_noscf = np.dot(self.noscf_orbitals, np.dot(damping_matrix, np.conj(self.noscf_orbitals.T)))
-        damping_matrix_oao_noscf = np.dot(s_noscf, np.dot(X_noscf.T, np.dot(damping_matrix_ao_noscf, np.dot(X_noscf, s_noscf)))) 
+        S_ao = rt_scf.overlap
+        S_noscf = np.dot(self.noscf_orbitals.T.conj(), np.dot(S_ao, self.noscf_orbitals))
+        s, U = np.linalg.eigh(S_noscf)
+        s_inv_sqrt_noscf = np.dot(U, np.dot(np.diag(1.0/np.sqrt(s)), U.T.conj())
+
+        damping_matrix_oao_noscf = np.dot(s_inv_sqrt_noscf, np.dot(damping_matrix_ao_noscf, s_inv_sqrt_noscf.T.conj())) 
         return 1j * damping_matrix_oao_noscf
 
     def calculate_potential(self, rt_scf):
