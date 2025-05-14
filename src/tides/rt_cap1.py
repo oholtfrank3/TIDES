@@ -47,6 +47,13 @@ class MOCAP:
 	def get_OAO_coeff(self):
 		raise NotImplementedError("Must choose a choice of basis for the CAP.")
 
+	def calculate_potential(self, rt_scf):
+		if rt_scf.nmat == 1:
+			return self.calculate_cap(rt_scf, rt_scf.fock_ao)
+		else:
+			return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
+
+
 	#in the original cap, we give the cap in the AO basis instead of the OAO basis for some reason.
 
 #Create the OAO CAP using the dimer basis.
