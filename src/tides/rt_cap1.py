@@ -6,7 +6,7 @@ from scipy.linalg import inv
 '''
 Molecular Orbital Complex Absorbing Potential
 '''
-
+# gotta change something so that the dimensions match up like the calculate potential function, in UKS the C_AO basis is 3D and is 2D for RKS
 
 # we first define our parent class, in which we define our damping diagonal and we also form the OAO  CAP
 
@@ -67,9 +67,11 @@ class DIMER(MOCAP):
 		overlap_DIMER  = self.dimer.get_ovlp()
 		eigvals, eigvecs = np.linalg.eigh(overlap_DIMER)
 		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
+		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
 	#Now we can use the lowdin orthogonalization  or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
-		OAO_coeff = np.dot(eigvecs, np.dot(s_inv_sqrt, np.dot(eigvecs.T, C_AO)))
-		return OAO_coeff
+		if C_AO.ndim == 3 #if we have UKS
+			return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
+		return np.dot(X, C_AO)
 
 #Create the OAO CAP using the NOSCF basis.
 class NOSCF(MOCAP):
