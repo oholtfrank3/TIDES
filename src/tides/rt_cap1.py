@@ -17,18 +17,19 @@ class MOCAP:
 		self.prefac = prefac
 		self.maxval = maxval
 
-	def calculate_cap(self, rt_scf, fock):
+	def calculate_cap(self, rt_scf, fock=NONE):
 	#this here orthogonalizes the fock matrix (rt_scf,orth = X)
-		fock=rt_scf.fock_ao
-		if rt_scf.nmat == 1:
-			return self.calculate_cap_single(rt_scf, fock)
-		else:
-			return np.stack([self.calculate_cap_single(rt_scf, fock[0]), self.calculate_cap_single(rt_scf, fock[1])])
+		if fock is NONE:
+			fock=rt_scf.fock_ao
 
-	def calculate_cap_single(self, rt_scf, fock):
+		if rt_scf.nmat == 1:
+			return self._calculate_cap_single(rt_scf, fock)
+		else:
+			return np.stack([self._calculate_cap_single(rt_scf, fock[0]), self._calculate_cap_single(rt_scf, fock[1])])
+
+	def _calculate_cap_single(self, rt_scf, fock):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
 		mo_energy, mo_orth = np.linalg.eigh(fock_orth)
-
 
 	#now we work to construct the damping diagonal (D), with the CAP in OAO basis equal to -1j*C'@D@C'.T
 		damping_diagonal = []
