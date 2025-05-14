@@ -119,7 +119,7 @@ class FORTHO(MOCAP):
 		super().__init__(expconst, emin, prefac, maxval)
 	def get_OAO_coeff(self, fock, rt_scf):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
-			_, mo_coeff = np.linalg.eigh(fock_orth)
+		_, mo_coeff = np.linalg.eigh(fock_orth)
 		return mo_coeff
 
 
