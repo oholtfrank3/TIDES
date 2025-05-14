@@ -56,10 +56,9 @@ class MOCAP:
 		raise NotImplementedError("Must choose a choice of basis for the CAP.")
 
 	def calculate_potential(self, rt_scf):
-		return self.calculate_cap(rt_scf, fock)
+		return self.calculate_cap(rt_scf)
 
-# I think I have finished the dimensionality mismatch at the bottom, so that we should always get the correct OAO coefficient matrix, except for FOCK maybe
-
+#still need to stitch together the mo_coeff from matrix that diagonalizes the fock matrix
 
 	#in the original cap, we give the cap in the AO basis instead of the OAO basis for some reason.
 
