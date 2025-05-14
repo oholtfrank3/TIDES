@@ -58,9 +58,9 @@ class MOCAP:
 
 #Create the OAO CAP using the dimer basis.
 class DIMER(MOCAP):
-	def __init__(self, expconst, emin, prefac=1, maxval=100):
+	def __init__(self, dimer, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
-# not 100% sure this is needed		self.dimer = dimer
+		self.dimer = dimer
 
 	def get_OAO_coeff(self):
 		C_AO = self.dimer.mo_coeff
@@ -73,10 +73,10 @@ class DIMER(MOCAP):
 
 #Create the OAO CAP using the NOSCF basis.
 class NOSCF(MOCAP):
-	def __init__(self, expconst, emin, prefac=1, maxval=100):
+	def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
-		#self.dimer = dimer
-		#self.noscf_orbitals = noscf_orbitals
+		self.dimer = dimer
+		self.noscf_orbitals = noscf_orbitals
 
 	def get_OAO_coeff(self):
 		C_AO = self.noscf_orbitals
@@ -93,8 +93,8 @@ class FORTHO(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
 	def get_OAO_coeff(self):
-		fock_orth = np.dot(self.rt_scf.orth.T, np.dot(self.fock, self.rt_scf.orth))
-		_, mo_orth = np.linalg.eigh(fock_orth)
+#		fock_orth = np.dot(self.rt_scf.orth.T, np.dot(self.fock, self.rt_scf.orth))
+#		_, mo_orth = np.linalg.eigh(fock_orth)
 		return mo_orth
 
 
