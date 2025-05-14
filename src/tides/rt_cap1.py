@@ -1,4 +1,4 @@
-import numpy as np
+\import numpy as np
 from scipy.linalg import inv
 
 
@@ -19,8 +19,16 @@ class MOCAP:
 
 	def calculate_cap(self, rt_scf, fock):
 	#this here orthogonalizes the fock matrix (rt_scf,orth = X)
+		fock=rt_scf.fock_ao
+		if rt_scf.nmat == 1:
+			return self.calculate_cap_single(rt_scf, fock)
+		else:
+			return np.stack([self.calculate_cap_single(rt_scf, fock[0]), self.calculate_cap_single(rt_scf, fock[1])])
+
+	def calculate_cap_single(self, rt_scf, fock):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
 		mo_energy, mo_orth = np.linalg.eigh(fock_orth)
+
 
 	#now we work to construct the damping diagonal (D), with the CAP in OAO basis equal to -1j*C'@D@C'.T
 		damping_diagonal = []
@@ -48,10 +56,9 @@ class MOCAP:
 		raise NotImplementedError("Must choose a choice of basis for the CAP.")
 
 	def calculate_potential(self, rt_scf):
-		if rt_scf.nmat == 1:
-			return self.calculate_cap(rt_scf, rt_scf.fock_ao)
-		else:
-			return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
+		return self.calculate_cap(rt_scf, fock)
+
+# I think I have finished the dimensionality mismatch at the bottom, so that we should always get the correct OAO coefficient matrix, except for FOCK maybe
 
 
 	#in the original cap, we give the cap in the AO basis instead of the OAO basis for some reason.
@@ -87,8 +94,10 @@ class NOSCF(MOCAP):
 		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
 		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
 	#Now we can use the lowdin orthogonalization or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
-		OAO_coeff = np.dot(eigvecs, np.dot(s_inv_sqrt, np.dot(eigvecs.T, C_AO)))
-		return OAO_coeff
+		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
+		if C_AO.ndim == 3: #if we have UKS
+			return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
+		return np.dot(X, C_AO)
 
 #Create the OAO CAP using the basis that diagonalizes the time-dependent fock matrix.
 class FORTHO(MOCAP):
