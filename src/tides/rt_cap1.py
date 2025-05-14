@@ -90,6 +90,9 @@ class NOSCF(MOCAP):
 
 #Create the OAO CAP using the basis that diagonalizes the time-dependent fock matrix.
 class FORTHO(MOCAP):
+	def __init__(self, mo_orth, expconst, emin, prefac=1, maxval=100):
+		super().__init__(expconst, emin, prefac, maxval)
+		self.mo_orth = mo_orth
 	def get_OAO_coeff(self):
-		return mo_orth
+		return self.mo_orth
 
