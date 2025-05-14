@@ -17,7 +17,7 @@ class MOCAP:
 		self.prefac = prefac
 		self.maxval = maxval
 
-	def calculate_cap(self, rt_scf, fock=NONE):
+	def calculate_cap(self, rt_scf, fock=None):
 	#this here orthogonalizes the fock matrix (rt_scf,orth = X)
 		if fock is NONE:
 			fock=rt_scf.fock_ao
