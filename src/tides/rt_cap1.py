@@ -19,7 +19,7 @@ class MOCAP:
 
 	def calculate_cap(self, rt_scf, fock=None):
 	#this here orthogonalizes the fock matrix (rt_scf,orth = X)
-		if fock is NONE:
+		if fock is None:
 			fock=rt_scf.fock_ao
 
 		if rt_scf.nmat == 1:
