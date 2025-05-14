@@ -50,8 +50,10 @@ class MOCAP:
 
 		C_OAO = self.get_OAO_coeff(fock, rt_scf)	#I think this might be needed as the C' does not always come from fock
 
-		damping_matrix_OAO = np.dot(C_OAO, np.dot(damping_matrix, C_OAO.T.conj()))
-		return 1j * damping_matrix_OAO
+		damping_matrix_OAO = np.stack([np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO.T.conj()))
+		transform = inv(rt_scf.orth.T)
+		damping_matrix_AO = np.dot(transform, np.dot(damping_matrix, transform.T))
+		return 1j * damping_matrix_AO
 
 	def get_OAO_coeff(self, fock, rt_scf):
 		raise NotImplementedError("Must choose a choice of basis for the CAP.")
