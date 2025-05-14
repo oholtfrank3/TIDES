@@ -27,8 +27,8 @@ class MOCAP:
 		if rt_scf.nmat == 1:
 			return self._calculate_cap_single(rt_scf, fock)
 		else:
-			cap_0 = self_calculate_cap_single(rt_scf, fock[0])
-			cap_1 = self_calculate_cap_single(rt_scf, fock[1])
+			cap_0 = self._calculate_cap_single(rt_scf, fock[0])
+			cap_1 = self._calculate_cap_single(rt_scf, fock[1])
 			return np.stack([cap_0, cap_1])
 
 	def _calculate_cap_single(self, rt_scf, fock):
