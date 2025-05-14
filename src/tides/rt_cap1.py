@@ -69,7 +69,7 @@ class DIMER(MOCAP):
 		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
 		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
 	#Now we can use the lowdin orthogonalization  or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
-		if C_AO.ndim == 3 #if we have UKS
+		if C_AO.ndim == 3: #if we have UKS
 			return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
 		return np.dot(X, C_AO)
 
