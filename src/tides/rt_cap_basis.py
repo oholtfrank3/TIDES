@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.linalg import inv
+from scipy.linalg import inv, eigh
 
 
 
@@ -21,8 +21,6 @@ class MOCAP:
 	#this here orthogonalizes the fock matrix (rt_scf,orth = X)
 		if fock is None:
 			fock=rt_scf.fock_ao
-		else:
-			fock = fock
 
 		if rt_scf.nmat == 1:
 			return self._calculate_cap_single(rt_scf, fock)
@@ -39,7 +37,6 @@ class MOCAP:
 		damping_diagonal = []
 		for energy in mo_energy:
 			energy_corrected = energy - self.emin
-
 			if energy_corrected > 0:
 				damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
 				if damping_term < (-1 * self.maxval):
@@ -60,11 +57,7 @@ class MOCAP:
 		raise NotImplementedError("Must choose a choice of basis for the CAP.")
 
 	def calculate_potential(self, rt_scf):
-		if rt_scf.nmat == 1:
-			return self.calculate_cap(rt_scf, rt_scf.fock_ao)
-		else:
-			return np.stack([self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])])
-
+		return self.calculate_cap(rt_scf)
 
 #error with dimensionality currently comes from looking at the calculate_potential function
 
@@ -81,6 +74,7 @@ class DIMER(MOCAP):
 		C_AO = self.dimer.mo_coeff
 		overlap_DIMER  = self.dimer.get_ovlp()
 		eigvals, eigvecs = np.linalg.eigh(overlap_DIMER)
+		#we probably should add something here to add a possible division by zero
 		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
 		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
 	#Now we can use the lowdin orthogonalization  or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
@@ -100,14 +94,14 @@ class NOSCF(MOCAP):
 
 	def get_OAO_coeff(self, fock, rt_scf):
 		C_AO = self.noscf_orbitals
-		overlap_dimer = self.dimer.get_overlap
+		overlap_dimer = self.dimer.get_ovlp()
 		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap_dimer, C_AO))
 		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
 		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
 	#Now we can use the lowdin orthogonalization or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
 		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
 		if C_AO.ndim == 3: #if we have UKS
-			if fock is rt_scf_fock_ao[0]:
+			if fock is rt_scf.fock_ao[0]:
 				return np.dot(X, C_AO[0])
 			elif fock is rt_scf.fock_ao[1]:
 				return np.dot(X, C_AO[1])
@@ -121,5 +115,3 @@ class FORTHO(MOCAP):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
 		_, mo_coeff = np.linalg.eigh(fock_orth)
 		return mo_coeff
-
-
