@@ -112,7 +112,7 @@ class NOSCF(MOCAP):
 		overlap_dimer = self.dimer.get_ovlp()
 	#force hermiticity for numerical stability
 		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap_dimer, C_AO))
-		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj()) 
+		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
 		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
 		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
 	#Now we can use the lowdin orthogonalization or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
