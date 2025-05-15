@@ -114,9 +114,18 @@ class NOSCF(MOCAP):
 		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap_dimer, C_AO))
 		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
 		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
-		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
+#looks like we have some near zero eigenvalues that are creating problems
+		tol = 1e-12
+		pos_idx = eigvals > tol
+		eigvals_pos = eigvals[pos_idx]
+		eigvecs_pos = eigvecs[:, pos_idx]
+
+		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_pos))
 	#Now we can use the lowdin orthogonalization or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
-		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
+		X = np.dot(eigvecs_pos, s_inv_sqrt)
+	#using the inverse of the left diagonal
+		X = np.dot(np.linalg.inv(np.dot(X.T.conj(), X)),X.T.conj())
+#		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
 		if C_AO.ndim == 3: #if we have UKS
 			if fock is rt_scf.fock_ao[0]:
 				return np.dot(X, C_AO[0])
@@ -129,9 +138,19 @@ class NOSCF(MOCAP):
 		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap_dimer, C_AO))
 		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
 		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
-		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
-		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
-		return np.dot(X.T, np.dot(fock, X))
+#looks like we have some near zero eigenvalues that are creating problems
+		tol = 1e-12
+		pos_idx = eigvals > tol
+		eigvals_pos = eigvals[pos_idx]
+		eigvecs_pos = eigvecs[:, pos_idx]
+
+		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_pos))
+		X = np.dot(eigvecs_pos, s_inv_sqrt)
+	#using the inverse of the left diagonal
+		X = np.dot(np.linalg.inv(np.dot(X.T.conj(), X)),X.T.conj())
+
+#		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
+		return np.dot(X, np.dot(fock,np.linalg.inv(X)))
 
 
 #Create the OAO CAP using the basis that diagonalizes the time-dependent fock matrix.
