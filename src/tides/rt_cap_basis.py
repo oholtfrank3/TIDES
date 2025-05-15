@@ -139,5 +139,5 @@ class FORTHO(MOCAP):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
 		_, mo_coeff = np.linalg.eigh(fock_orth)
 		return mo_coeff
-	def trans_fock(rt_scf, fock)
+	def trans_fock(rt_scf, fock):
 		return np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
