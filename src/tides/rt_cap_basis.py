@@ -30,8 +30,11 @@ class MOCAP:
 			return np.stack([cap_0, cap_1])
 
 	def _calculate_cap_single(self, rt_scf, fock):
-		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
-		mo_energy, _ = np.linalg.eigh(fock_orth)
+
+	#this is the part that needs changing, make it so that I am transforming the fock matrix into whatever basis I am forming the CAP in ****************
+#		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
+		fock_trans = self.trans_fock(rt_scf, fock)
+		mo_energy, _ = np.linalg.eigh(fock_trans)
 
 	#now we work to construct the damping diagonal (D), with the CAP in OAO basis equal to -1j*C'@D@C'.T
 		damping_diagonal = []
@@ -89,6 +92,13 @@ class DIMER(MOCAP):
 			elif fock is rt_scf.fock_ao[1]:
 				return np.dot(X, C_AO[1])
 		return np.dot(X, C_AO)
+	def trans_fock(self, rt_scf, fock):
+		C_AO = self.dimer.mo_coeff
+		overlap_DIMER  = self.dimer.get_ovlp()
+		eigvals, eigvecs = np.linalg.eigh(overlap_DIMER)
+		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
+		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
+		return np.dot(X.T, np.dot(fock, X))
 
 #Create the OAO CAP using the NOSCF basis.
 class NOSCF(MOCAP):
@@ -111,6 +121,15 @@ class NOSCF(MOCAP):
 			elif fock is rt_scf.fock_ao[1]:
 				return np.dot(X, C_AO[1])
 		return np.dot(X, C_AO)
+	def trans_fock(self, rt_scf, fock):
+		C_AO = self.noscf_orbitals
+		overlap_dimer = self.dimer.get_ovlp()
+		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap_dimer, C_AO))
+		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
+		s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals))
+		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
+		return np.dot(X.T, np.dot(fock, X))
+
 
 #Create the OAO CAP using the basis that diagonalizes the time-dependent fock matrix.
 class FORTHO(MOCAP):
@@ -120,3 +139,5 @@ class FORTHO(MOCAP):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
 		_, mo_coeff = np.linalg.eigh(fock_orth)
 		return mo_coeff
+	def trans_fock(rt_scf, fock)
+		return np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
