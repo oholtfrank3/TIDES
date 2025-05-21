@@ -49,7 +49,7 @@ class MOCAP:
 
 		C_OAO = self.get_OAO_coeff(fock, rt_scf)
 		if rt_scf.nmat == 2: #UKS
-			damping_OAO = np.stack([np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO[0].T.conj(), np.dot(C_OAO[1], np.dot(damping_matrix, C_OAO[1].T.conj()])
+			damping_OAO = np.stack([np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO[0].T.conj())), np.dot(C_OAO[1], np.dot(damping_matrix, C_OAO[1].T.conj()))])
 		else: #RKS
 			damping_OAO = C_OAO @ damping_matrix @ C_OAO.T.conj()
 
