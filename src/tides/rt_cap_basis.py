@@ -27,12 +27,13 @@ class MOCAP:
 		else:
 			cap_0 = self._calculate_cap_single(rt_scf, fock[0])
 			cap_1 = self._calculate_cap_single(rt_scf, fock[1])
-			return np.stack([cap_0, cap_1])
+			return np.stack((cap_0, cap_1))
 
 	def _calculate_cap_single(self, rt_scf, fock):
 
 	#this is the part that needs changing, make it so that I am transforming the fock matrix into whatever basis I am forming the CAP in ****************
 #		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
+		fock_trans = fock_trans.astype(np.complex128)
 		fock_trans = self.trans_fock(rt_scf, fock)
 		mo_energy, _ = np.linalg.eigh(fock_trans)
 
@@ -57,8 +58,8 @@ class MOCAP:
 			np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO[0].T.conj())),
 			np.dot(C_OAO[1], np.dot(damping_matrix, C_OAO[1].T.conj()))
 		])
-		transform = inv(rt_scf.orth.T)
-		damping_matrix_AO = np.dot(transform, np.dot(damping_matrix, transform.T))
+		transform = inv(rt_scf.orth.T.conj())
+		damping_matrix_AO = np.dot(transform, np.dot(damping_matrix, transform.T.conj()))
 		return 1j * damping_matrix_AO
 
 	def get_OAO_coeff(self, fock, rt_scf):
@@ -159,8 +160,8 @@ class FORTHO(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
 	def get_OAO_coeff(self, fock, rt_scf):
-		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
+		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth)).astype(np.complex128)
 		_, mo_coeff = np.linalg.eigh(fock_orth)
 		return mo_coeff
 	def trans_fock(self, rt_scf, fock):
-		return np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
+		return np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth)).astype(np.complex128)
