@@ -33,8 +33,7 @@ class MOCAP:
 
 	#this is the part that needs changing, make it so that I am transforming the fock matrix into whatever basis I am forming the CAP in ****************
 #		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
-		fock_trans = fock_trans.astype(np.complex128)
-		fock_trans = self.trans_fock(rt_scf, fock)
+		fock_trans = self.trans_fock(rt_scf, fock).astype(np.complex128)
 		mo_energy, _ = np.linalg.eigh(fock_trans)
 
 	#now we work to construct the damping diagonal (D), with the CAP in OAO basis equal to -1j*C'@D@C'.T
