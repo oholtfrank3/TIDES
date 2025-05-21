@@ -48,13 +48,15 @@ class MOCAP:
 		damping_matrix = np.diag(np.array(damping_diagonal, dtype=np.complex128))
 
 		C_OAO = self.get_OAO_coeff(fock, rt_scf)
+		transform = inv(rt_scf.orth.T)
+
 		if rt_scf.nmat == 2: #UKS
-			damping_OAO = np.stack([np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO[0].T.conj())), np.dot(C_OAO[1], np.dot(damping_matrix, C_OAO[1].T.conj()))])
+			damping_OAO = [np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO[0].T.conj())), np.dot(C_OAO[1], np.dot(damping_matrix, C_OAO[1].T.conj()))]
+			return 1j * np.stack([np.dot(transform, np.dot(d_oao, transform.T)) for d_oao in damping_OAO])
+
 		else: #RKS
 			damping_OAO = C_OAO @ damping_matrix @ C_OAO.T.conj()
-
-		transform = inv(rt_scf.orth.T)
-		return 1j * np.dot(transform, np.dot(damping_OAO, transform.T))
+			return 1j * np.dot(transform, np.dot(damping_OAO, transform.T))
 
 	def get_OAO_coeff(self, fock, rt_scf):
 		raise NotImplementedError("Must choose a choice of basis for the CAP.")
