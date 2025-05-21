@@ -31,7 +31,6 @@ class MOCAP:
 
 	def _calculate_cap_single(self, rt_scf, fock):
 		fock_trans = self.trans_fock(rt_scf, fock)
-		C_OAO = self.get_OAO_coeff(fock, rt_scf)
 		mo_energy, _ = np.linalg.eigh(fock_trans)
 
 	#now we work to construct the damping diagonal (D), with the CAP in OAO basis equal to -1j*C'@D@C'.T
@@ -48,7 +47,11 @@ class MOCAP:
 
 		damping_matrix = np.diag(np.array(damping_diagonal, dtype=np.complex128))
 
-		damping_OAO = C_OAO @ damping_matrix @ C_OAO.T.conj()
+		C_OAO = self.get_OAO_coeff(fock, rt_scf)
+		if rt_scf.nmat == 2: #UKS
+			damping_OAO = np.stack([np.dot(C_OAO[0], np.dot(damping_matrix, C_OAO[0].T.conj(), np.dot(C_OAO[1], np.dot(damping_matrix, C_OAO[1].T.conj()])
+		else: #RKS
+			damping_OAO = C_OAO @ damping_matrix @ C_OAO.T.conj()
 
 		transform = inv(rt_scf.orth.T)
 		return 1j * np.dot(transform, np.dot(damping_OAO, transform.T))
@@ -71,7 +74,7 @@ class DIMER(MOCAP):
 		self.dimer = dimer
 
 	def get_OAO_coeff(self, fock, rt_scf):
-		C_AO = self.dimer.mo_coeff
+		C_AO = self.dimer.mo_coeff #should be shape UKS=(nspin, nao, nao) or RKS=(nao, nao)
 		overlap_DIMER  = self.dimer.get_ovlp()
 		eigvals, eigvecs = np.linalg.eigh(overlap_DIMER)
 		#we probably should add something here to add a possible division by zero
@@ -79,11 +82,10 @@ class DIMER(MOCAP):
 		X = np.dot(eigvecs, np.dot(s_inv_sqrt, eigvecs.T.conj()))
 	#Now we can use the lowdin orthogonalization  or canonical orthogonalization to get the OAO representation, in lowdin the transformation is C'=U@s^-0.5@U.T@C
 		if C_AO.ndim == 3: #if we have UKS
-			if fock is rt_scf.fock_ao[0]:
-				return np.dot(X, C_AO[0])
-			elif fock is rt_scf.fock_ao[1]:
-				return np.dot(X, C_AO[1])
-		return np.dot(X, C_AO)
+			return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
+		else:
+			return np.dot(X, C_AO)
+
 	def trans_fock(self, rt_scf, fock):
 		overlap_DIMER  = self.dimer.get_ovlp()
 		eigvals, eigvecs = np.linalg.eigh(overlap_DIMER)
