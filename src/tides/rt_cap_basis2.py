@@ -1,3 +1,6 @@
+import numpy as np
+from scipy.linalg import inv
+
 class MOCAP:
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		self.expconst = expconst
