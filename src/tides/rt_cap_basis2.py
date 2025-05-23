@@ -65,13 +65,16 @@ class DIMER(MOCAP):
 
 	def trans_fock(self, rt_scf, fock):
 		overlap = self.dimer.get_ovlp()
-		eigvals, eigvecs = np.linalg.eigh(S)
+		eigvals, eigvecs = np.linalg.eigh(overlap)
 		X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
 
 		if fock.ndim == 3:
 			return np.stack([np.dot(X.T, np.dot(fock[0], X)), np.dot(X.T, np.dot(fock[1], X))])
 		else:
 			return np.dot(X.T, np.dot(fock, X))
+
+class NOSCF(MOCAP):
+	def __init__(self,
 
 class FORTHO(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
