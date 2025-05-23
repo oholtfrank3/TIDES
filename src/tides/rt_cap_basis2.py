@@ -8,7 +8,7 @@ class MOCAP:
 		self.prefac = prefac
 		self.maxval = maxval
 
-	def calculate_cap(self, rt_scf, fock=None):
+	def calculate_potential(self, rt_scf, fock=None):
 		if fock is None:
 			fock=rt_scf.fock_ao
 
@@ -46,9 +46,6 @@ class MOCAP:
 	def get_OAO_coeff(self, fock, rt_scf):
 		raise NotImplementedError("Must choose choice of basis")
 
-	def calculate_potential(self, rt_scf):
-		return self.calculate_cap(rt_scf)
-
 
 class DIMER(MOCAP):
 	def __init__(self, dimer, expconst, emin, prefac=1, maxval=100):
@@ -58,35 +55,24 @@ class DIMER(MOCAP):
 	def get_OAO_coeff(self, fock, rt_scf):
 		C_AO = self.dimer.mo_coeff
 		overlap = self.dimer.get_ovlp()
+		eigvals, eigvecs = np.linalg.eigh(overlap)
+		X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
 
 		if C_AO.ndim == 3:
-			overlap_alpha, overlap_beta = overlap
-			C_OAO = []
-			for spin, S in enumerate([overlap_alpha, overlap_beta]):
-				eigvals, eigvecs = np.linalg.eigh(S)
-				X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
-				C_OAO.append(np.dot(X, C_AO[spin]))
-			return np.array(C_OAO)
+			return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
 		else:
-			eigvals, eigvecs = np.linalg.eigh(overlap)
-			X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
 			return np.dot(X, C_AO)
 
 	def trans_fock(self, rt_scf, fock):
 		overlap = self.dimer.get_ovlp()
+		eigvals, eigvecs = np.linalg.eigh(S)
+		X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
 
-		if overlap.ndim == 3:
-			overlap_alpha, overlap_beta = overlap
-			fock_trans = []
-			for spin, S in enumerate([overlap_alpha, overlap_beta]):
-				eigvals, eigvecs = np.linalg.eigh(S)
-				X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
-				fock_trans.append(np.dot(X.T, np.dot(fock[spin], X)))
-			return np.array(fock_trans)
+		if fock.ndim == 3:
+			return np.stack([np.dot(X.T, np.dot(fock[0], X)), np.dot(X.T, np.dot(fock[1], X))])
 		else:
-			eigvals, eigvecs = np.linalg.eigh(overlap)
-			X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
 			return np.dot(X.T, np.dot(fock, X))
+
 class FORTHO(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
