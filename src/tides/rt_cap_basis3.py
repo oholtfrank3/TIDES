@@ -8,29 +8,27 @@ class MOCAP:
         self.prefac = prefac
         self.maxval = maxval
 
-    def calculate_potential(self, rt_scf, fock=None):
+    def calculate_potential(self, rt_scf, fock=None, C_OAO=None):
         if fock is None:
             fock = rt_scf.fock_ao
 
-        # Handle single-spin or two-spin cases
         if rt_scf.nmat == 1:
-            # single spin case: get OAO coeffs for that spin only
-            C_OAO = self.get_OAO_coeff(fock, rt_scf)
-            if C_OAO.ndim == 3:
-                C_OAO = C_OAO[0]  # Take first spin if 3D
-            return self._calculate_cap_single(rt_scf, fock, C_OAO)
+            coao = C_OAO if (C_OAO is None or C_OAO.ndim == 2) else C_OAO[0]
+            return self._calculate_cap_single(rt_scf, fock, coao)
         else:
-            caps = []
-            for spin in range(2):
-                # get spin block fock and coefficients
-                fock_spin = fock[spin]
-                C_OAO = self.get_OAO_coeff(fock_spin, rt_scf)
-                if C_OAO.ndim == 3:
-                    C_OAO = C_OAO[spin]
-                caps.append(self._calculate_cap_single(rt_scf, fock_spin, C_OAO))
-            return np.stack(caps)
+            cap_alpha = self._calculate_cap_single(
+                rt_scf,
+                fock[0],
+                C_OAO[0] if (C_OAO is not None and C_OAO.ndim == 3) else None,
+            )
+            cap_beta = self._calculate_cap_single(
+                rt_scf,
+                fock[1],
+                C_OAO[1] if (C_OAO is not None and C_OAO.ndim == 3) else None,
+            )
+            return np.stack([cap_alpha, cap_beta])
 
-    def _calculate_cap_single(self, rt_scf, fock, C_OAO):
+    def _calculate_cap_single(self, rt_scf, fock, C_OAO=None):
         fock_trans = self.trans_fock(rt_scf, fock)
         mo_energy, _ = np.linalg.eigh(fock_trans)
 
@@ -46,8 +44,13 @@ class MOCAP:
                 damping_diagonal.append(0)
 
         damping_matrix = np.diag(np.array(damping_diagonal, dtype=np.complex128))
-        # Revert into the basis upon which we propagate in rt_scf
+        if C_OAO is None:
+            C_OAO = self.get_OAO_coeff(fock, rt_scf)
+        assert C_OAO.ndim == 2, "C_OAO should be (n, n) for a single spin"
+
+        # revert into the basis upon which we propagate in rt_scf
         transform = np.linalg.inv(rt_scf.orth.T)
+
         damping_OAO = np.dot(C_OAO, np.dot(damping_matrix, C_OAO.T.conj()))
         damping_AO = np.dot(transform, np.dot(damping_OAO, transform.T))
         return 1j * damping_AO
@@ -64,22 +67,19 @@ class DIMER(MOCAP):
         C_AO = self.dimer.mo_coeff
         overlap = self.dimer.get_ovlp()
         eigvals, eigvecs = np.linalg.eigh(overlap)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
+        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
 
         if C_AO.ndim == 3:
-            return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
+            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time.")
         else:
             return np.dot(X, C_AO)
 
     def trans_fock(self, rt_scf, fock):
         overlap = self.dimer.get_ovlp()
         eigvals, eigvecs = np.linalg.eigh(overlap)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
+        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
 
-        if fock.ndim == 3:
-            return np.stack([np.dot(X.T, np.dot(fock[0], X)), np.dot(X.T, np.dot(fock[1], X))])
-        else:
-            return np.dot(X.T, np.dot(fock, X))
+        return np.dot(X.T, np.dot(fock, X))
 
 class NOSCF(MOCAP):
     def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
@@ -93,25 +93,22 @@ class NOSCF(MOCAP):
         overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
         overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
         eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
+        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
 
         if C_AO.ndim == 3:
-            return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
+            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time.")
         else:
             return np.dot(X, C_AO)
 
     def trans_fock(self, rt_scf, fock):
-        overlap = self.dimer.get_ovlp()
         C_AO = self.noscf_orbitals
+        overlap = self.dimer.get_ovlp()
         overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
         overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
         eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
+        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
 
-        if fock.ndim == 3:
-            return np.stack([np.dot(X.T, np.dot(fock[0], X)), np.dot(X.T, np.dot(fock[1], X))])
-        else:
-            return np.dot(X.T, np.dot(fock, X))
+        return np.dot(X.T, np.dot(fock, X))
 
 class FORTHO(MOCAP):
     def __init__(self, expconst, emin, prefac=1, maxval=100):
