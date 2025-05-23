@@ -68,10 +68,16 @@ class DIMER(MOCAP):
         self.dimer = dimer
 
     def get_OAO_coeff(self, fock, rt_scf):
-        # Always expect a single-spin fock, so pick the correct spin outside this function!
         C_AO = self.dimer.mo_coeff
+        # Always slice C_AO before returning: select the spin component matching fock shape if needed
         if C_AO.ndim == 3:
-            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time. Slice before calling!")
+            # Try to match the shape (n, n) of fock with the shape of each spin in C_AO
+            for i in range(C_AO.shape[0]):
+                if C_AO[i].shape == fock.shape:
+                    C_AO = C_AO[i]
+                    break
+            else:
+                raise ValueError("Could not match spin component of C_AO to fock shape in get_OAO_coeff.")
         overlap = self.dimer.get_ovlp()
         eigvals, eigvecs = np.linalg.eigh(overlap)
         X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
@@ -91,8 +97,14 @@ class NOSCF(MOCAP):
 
     def get_OAO_coeff(self, fock, rt_scf):
         C_AO = self.noscf_orbitals
+        # Always slice C_AO before returning: select the spin component matching fock shape if needed
         if C_AO.ndim == 3:
-            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time. Slice before calling!")
+            for i in range(C_AO.shape[0]):
+                if C_AO[i].shape == fock.shape:
+                    C_AO = C_AO[i]
+                    break
+            else:
+                raise ValueError("Could not match spin component of C_AO to fock shape in get_OAO_coeff.")
         overlap = self.dimer.get_ovlp()
         overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
         overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
@@ -102,6 +114,13 @@ class NOSCF(MOCAP):
 
     def trans_fock(self, rt_scf, fock):
         C_AO = self.noscf_orbitals
+        if C_AO.ndim == 3:
+            for i in range(C_AO.shape[0]):
+                if C_AO[i].shape == fock.shape:
+                    C_AO = C_AO[i]
+                    break
+            else:
+                raise ValueError("Could not match spin component of C_AO to fock shape in trans_fock.")
         overlap = self.dimer.get_ovlp()
         overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
         overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
