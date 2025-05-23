@@ -74,7 +74,36 @@ class DIMER(MOCAP):
 			return np.dot(X.T, np.dot(fock, X))
 
 class NOSCF(MOCAP):
-	def __init__(self,
+	def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
+		super().__init__(expconst, emin, prefac, maxval)
+		self.dimer = dimer
+		self.noscf_orbitals = noscf_orbitals
+
+	def get_OAO_coeff(self, fock, rt_scf):
+		C_AO = self.noscf_orbitals
+		overlap = self.dimer.get_ovlp()
+		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
+		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
+		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
+		X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
+
+		if C_AO.ndim == 3:
+			return np.stack([np.dot(X, C_AO[0]), np.dot(X, C_AO[1])])
+		else:
+			return np.dot(X, C_AO)
+
+	def trans_fock(self, rt_scf, fock):
+		overlap = self.dimer.get_ovlp()
+		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
+		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
+		eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
+		X = np.dot(eigvecs, np.dot(np.diag(1.0/np.sqrt(eigvals)), eigvecs.T.conj()))
+
+		if fock.ndim == 3:
+			return np.stack([np.dot(X.T, np.dot(fock[0], X)), np.dot(X.T, np.dot(fock[1], X))])
+		else:
+			return np.dot(X.T, np.dot(fock, X))
+
 
 class FORTHO(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
