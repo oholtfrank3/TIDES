@@ -39,9 +39,15 @@ class MOCAP:
 		C_OAO = self.get_OAO_coeff(fock, rt_scf)
 	#revert into the basis upon which we propogate in rt_scf
 		transform = np.linalg.inv(rt_scf.orth.T)
-		damping_OAO = np.dot(C_OAO, np.dot(damping_matrix, C_OAO.T.conj()))
-		damping_AO = np.dot(transform, np.dot(damping_OAO, transform.T))
-		return 1j * damping_AO
+
+		if C_OAO.ndim == 3:
+			damping_OAO = np.array([np.dot(C_OAO[spin], np.dot(damping_matrix, C_OAO[spin].T.conj())) for spin in range(C_OAO.shape[0])])
+			damping_AO = np.array([np.dot(transform, np.dot(damping_OAO[spin], transform.T)) for spin in range(damping_OAO.shape[0])])
+			return 1j * damping_AO
+		else:
+			damping_OAO = np.dot(C_OAO, np.dot(damping_matrix, C_OAO.T.conj()))
+			damping_AO = np.dot(transform, np.dot(damping_OAO, transform.T))
+			return 1j * damping_AO
 
 	def get_OAO_coeff(self, fock, rt_scf):
 		raise NotImplementedError("Must choose choice of basis")
@@ -93,6 +99,7 @@ class NOSCF(MOCAP):
 			return np.dot(X, C_AO)
 
 	def trans_fock(self, rt_scf, fock):
+		C_AO = self.noscf_orbitals
 		overlap = self.dimer.get_ovlp()
 		overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
 		overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
