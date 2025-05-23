@@ -1,3 +1,4 @@
+
 import numpy as np
 from scipy.linalg import inv
 
@@ -16,17 +17,20 @@ class MOCAP:
             coao = C_OAO if (C_OAO is None or C_OAO.ndim == 2) else C_OAO[0]
             return self._calculate_cap_single(rt_scf, fock, coao)
         else:
-            cap_alpha = self._calculate_cap_single(
-                rt_scf,
-                fock[0],
-                C_OAO[0] if (C_OAO is not None and C_OAO.ndim == 3) else None,
-            )
-            cap_beta = self._calculate_cap_single(
-                rt_scf,
-                fock[1],
-                C_OAO[1] if (C_OAO is not None and C_OAO.ndim == 3) else None,
-            )
-            return np.stack([cap_alpha, cap_beta])
+            results = []
+            for spin in range(2):
+                spin_fock = fock[spin]
+                if C_OAO is not None:
+                    if C_OAO.ndim == 3:
+                        spin_coao = C_OAO[spin]
+                    elif C_OAO.ndim == 2:
+                        spin_coao = C_OAO
+                    else:
+                        spin_coao = None
+                else:
+                    spin_coao = None
+                results.append(self._calculate_cap_single(rt_scf, spin_fock, spin_coao))
+            return np.stack(results)
 
     def _calculate_cap_single(self, rt_scf, fock, C_OAO=None):
         fock_trans = self.trans_fock(rt_scf, fock)
@@ -64,21 +68,19 @@ class DIMER(MOCAP):
         self.dimer = dimer
 
     def get_OAO_coeff(self, fock, rt_scf):
+        # Always expect a single-spin fock, so pick the correct spin outside this function!
         C_AO = self.dimer.mo_coeff
+        if C_AO.ndim == 3:
+            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time. Slice before calling!")
         overlap = self.dimer.get_ovlp()
         eigvals, eigvecs = np.linalg.eigh(overlap)
         X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
-
-        if C_AO.ndim == 3:
-            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time.")
-        else:
-            return np.dot(X, C_AO)
+        return np.dot(X, C_AO)
 
     def trans_fock(self, rt_scf, fock):
         overlap = self.dimer.get_ovlp()
         eigvals, eigvecs = np.linalg.eigh(overlap)
         X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
-
         return np.dot(X.T, np.dot(fock, X))
 
 class NOSCF(MOCAP):
@@ -89,16 +91,14 @@ class NOSCF(MOCAP):
 
     def get_OAO_coeff(self, fock, rt_scf):
         C_AO = self.noscf_orbitals
+        if C_AO.ndim == 3:
+            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time. Slice before calling!")
         overlap = self.dimer.get_ovlp()
         overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
         overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
         eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
         X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
-
-        if C_AO.ndim == 3:
-            raise ValueError("C_AO is spin-resolved, but get_OAO_coeff should only be called for a single spin at a time.")
-        else:
-            return np.dot(X, C_AO)
+        return np.dot(X, C_AO)
 
     def trans_fock(self, rt_scf, fock):
         C_AO = self.noscf_orbitals
@@ -107,7 +107,6 @@ class NOSCF(MOCAP):
         overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
         eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
         X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
-
         return np.dot(X.T, np.dot(fock, X))
 
 class FORTHO(MOCAP):
@@ -122,3 +121,4 @@ class FORTHO(MOCAP):
     def trans_fock(self, rt_scf, fock):
         trans_fock = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
         return trans_fock
+
