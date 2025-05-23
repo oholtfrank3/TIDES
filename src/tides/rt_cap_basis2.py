@@ -5,6 +5,18 @@ class MOCAP:
 		self.prefac = prefac
 		self.maxval = maxval
 
+	def calculate_cap(self, rt_scf, fock=None):
+		if fock is None:
+			fock=rt_scf.fock_ao
+
+		if rt_scf.nmat == 1:
+			return self._calculate_cap_single(rt_scf, fock)
+		else:
+			cap_alpha = self._calculate_cap_single(rt_scf, fock[0])
+			cap_beta = self._calculate_cap_single(rt_scf, fock[1])
+			return np.stack([cap_alpha, cap_beta])
+
+
 def _calculate_cap_single(self, rt_scf, fock):
 	fock_trans = self.trans_fock(rt_scf, fock)
 	mo_energy, _ = np.linalg.eigh(fock_trans)
@@ -31,17 +43,8 @@ def _calculate_cap_single(self, rt_scf, fock):
 	def get_OAO_coeff(self, fock, rt_scf):
 		raise NotImplementedError("Must choose choice of basis")
 
-
-	def calculate_potential(self, rt_scf, fock=None):
-		if fock is None:
-			fock=rt_scf.fock_ao
-
-		if rt_scf.nmat == 1:
-			return self._calculate_cap_single(rt_scf, fock)
-		else:
-			cap_alpha = self._calculate_cap_single(rt_scf, fock[0])
-			cap_beta = self._calculate_cap_single(rt_scf, fock[1])
-			return np.stack([cap_alpha, cap_beta])
+	def calculate_potential(self, rt_scf):
+		return self.calculate_cap(rt_scf)
 
 
 class DIMER(MOCAP):
