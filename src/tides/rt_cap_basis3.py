@@ -83,7 +83,7 @@ class DIMER(MOCAP):
         X = np.dot(eigvecs, np.dot(np.diag(np.power(eigvals, -0.5)), eigvecs.T.conj()))
         return np.dot(X, C_AO)
 
-   def trans_fock(self, rt_scf, fock):
+    def trans_fock(self, rt_scf, fock):
         trans_fock = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
         return trans_fock
 
