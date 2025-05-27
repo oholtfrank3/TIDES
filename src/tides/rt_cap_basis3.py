@@ -1,4 +1,4 @@
-
+\
 import numpy as np
 from scipy.linalg import inv
 from tides.rt_utils import _sym_orth
@@ -35,8 +35,6 @@ class MOCAP:
 
     def _calculate_cap_single(self, rt_scf, fock, C_OAO=None):
         mo_energy = self.get_mo_ener(fock, rt_scf)
-        print("mo_energy:", mo_energy)
-        print("mo_energy.shape:", np.shape(mo_energy))
         damping_diagonal = []
         for energy in mo_energy:
             energy_corrected = energy - self.emin
