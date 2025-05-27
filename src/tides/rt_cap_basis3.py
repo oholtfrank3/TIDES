@@ -35,6 +35,8 @@ class MOCAP:
 
     def _calculate_cap_single(self, rt_scf, fock, C_OAO=None):
         mo_energy = self.get_mo_ener(fock, rt_scf)
+        print("mo_energy:", mo_energy)
+        print("mo_energy.shape:", np.shape(mo_energy))
         damping_diagonal = []
         for energy in mo_energy:
             energy_corrected = energy - self.emin
@@ -121,6 +123,3 @@ class FORTHO(MOCAP):
     def get_mo_ener(self, fock, rt_scf):
         scf_energies = self.dimer.mo_energy
         return scf_energies
-
-
-
