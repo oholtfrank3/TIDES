@@ -81,7 +81,7 @@ class DIMER(MOCAP):
         return np.dot(X, C_AO)
 
     def get_mo_ener(self, fock, rt_scf):
-        scf_energies = dimer.mo_energy
+        scf_energies = self.dimer.mo_energy
         return scf_energies
 
 class NOSCF(MOCAP):
@@ -119,7 +119,7 @@ class FORTHO(MOCAP):
         return mo_coeff
 
     def get_mo_ener(self, fock, rt_scf):
-        scf_energies = dimer.mo_energy
+        scf_energies = self.dimer.mo_energy
         return scf_energies
 
 
