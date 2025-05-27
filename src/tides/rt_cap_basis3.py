@@ -1,6 +1,7 @@
 
 import numpy as np
 from scipy.linalg import inv
+from tides.rt_utils import _sym_orth
 
 class MOCAP:
     def __init__(self, expconst, emin, prefac=1, maxval=100):
@@ -33,9 +34,8 @@ class MOCAP:
             return np.stack(results)
 
     def _calculate_cap_single(self, rt_scf, fock, C_OAO=None):
-        fock_trans = self.trans_fock(rt_scf, fock)
-        mo_energy, _ = np.linalg.eigh(fock_trans)
-
+        fock_trans = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
+        mo_energy = self.get_mo_ener(fock, rt_scf)
         damping_diagonal = []
         for energy in mo_energy:
             energy_corrected = energy - self.emin
@@ -80,19 +80,8 @@ class DIMER(MOCAP):
                 raise ValueError("Could not match spin component of C_AO to fock shape in get_OAO_coeff.")
         overlap = self.dimer.get_ovlp()
         eigvals, eigvecs = np.linalg.eigh(overlap)
-        print(eigvals)
         X = np.dot(eigvecs, np.dot(np.diag(np.power(eigvals, -0.5)), eigvecs.T.conj()))
         return np.dot(X, C_AO)
-
-#    def trans_fock(self, rt_scf, fock):
-#        trans_fock = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
-#        return trans_fock
-
-    def trans_fock(self, rt_scf, fock):
-        overlap = self.dimer.get_ovlp()
-        eigvals, eigvecs = np.linalg.eigh(overlap)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
-        return np.dot(X.T, np.dot(fock, X))
 
 class NOSCF(MOCAP):
     def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
@@ -110,28 +99,12 @@ class NOSCF(MOCAP):
                     break
             else:
                 raise ValueError("Could not match spin component of C_AO to fock shape in get_OAO_coeff.")
-        overlap = self.dimer.get_ovlp()
-        overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
-        overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
-        eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
+#        overlap = self.dimer.get_ovlp()
+#        overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
+#        overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
+#        eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
+#        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
         return np.dot(X, C_AO)
-
-    def trans_fock(self, rt_scf, fock):
-        C_AO = self.noscf_orbitals
-        if C_AO.ndim == 3:
-            for i in range(C_AO.shape[0]):
-                if C_AO[i].shape == fock.shape:
-                    C_AO = C_AO[i]
-                    break
-            else:
-                raise ValueError("Could not match spin component of C_AO to fock shape in trans_fock.")
-        overlap = self.dimer.get_ovlp()
-        overlap_NOSCF = np.dot(C_AO.T.conj(), np.dot(overlap, C_AO))
-        overlap_NOSCF = 0.5 * (overlap_NOSCF + overlap_NOSCF.T.conj())
-        eigvals, eigvecs = np.linalg.eigh(overlap_NOSCF)
-        X = np.dot(eigvecs, np.dot(np.diag(1.0 / np.sqrt(eigvals)), eigvecs.T.conj()))
-        return np.dot(X.T, np.dot(fock, X))
 
 class FORTHO(MOCAP):
     def __init__(self, expconst, emin, prefac=1, maxval=100):
@@ -142,7 +115,9 @@ class FORTHO(MOCAP):
         _, mo_coeff = np.linalg.eigh(fock_orth)
         return mo_coeff
 
-    def trans_fock(self, rt_scf, fock):
-        trans_fock = np.dot(rt_scf.orth.T, np.dot(fock, rt_scf.orth))
-        return trans_fock
+    def get_mo_ener(self, fock, rt_scf):
+        scf_energies = dimer.mo_energy
+        return scf_energies
+
+
 
