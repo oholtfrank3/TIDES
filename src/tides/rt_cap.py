@@ -1,4 +1,4 @@
-import numpy as np
+\import numpy as np
 from scipy.linalg import inv
 
 '''
@@ -6,7 +6,7 @@ Molecular Orbital Complex Absorbing Potential (CAP)
 '''
 
 class MOCAP:
-	def __init__(self, dimer, expconst, emin, prefac=1, maxval=100):
+	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		self.expconst = expconst
 		self.emin = emin
 		self.prefac = prefac
@@ -49,7 +49,7 @@ class MOCAP:
 
 
 class DIMER(MOCAP):
-	def __init__(self, expconst, emin, dimer, prefac=1, maxval=100):
+	def __init__(self, expconst, emin, prefac=1, maxval=100, dimer=None):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
 
@@ -65,7 +65,7 @@ class DIMER(MOCAP):
 
 
 class NOSCF(MOCAP):
-	def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
+	def __init__(self, expconst, emin, prefac=1, maxval=100, dimer=None, noscf_orbitals=None):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
 		self.noscf_orbitals = noscf_orbitals
