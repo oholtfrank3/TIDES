@@ -55,26 +55,35 @@ def _mask_fragment_basis(scf, match_indices):
 def noscfbasis(scf, *fragments, reorder=True, orth=None):
     total_dim = np.shape(scf.mo_coeff)
     noscf_orbitals = np.zeros(total_dim)
+
+    if len(total_dim) == 3:
+        noscf_energy = np.zeros((total_dim[0], total_dim[2]))
+    else:
+        noscf_energy = np.zeros(total_dim[1])
     
     for frag in fragments:
         match_indices = _match_fragment_atom(scf, frag)
         mask = _mask_fragment_basis(scf, match_indices)
         noscf_orbitals[mask] = frag.mo_coeff
     
+        if len(total_dim) == 3:
+            noscf_energy[:, match_indices] = frag.mo_energy
+        else:
+            noscf_energy[match_indices] = frag.mo_energy
     if reorder:
         # Reorder so that all occupied orbitals appear before virtual orbitals
         # This may give the wrong order if you are projecting onto bizarre fragments, since the occupation of each fragment is used to reorder
-        noscf_orbitals = _reorder_noscf(noscf_orbitals, scf, *fragments)
+        noscf_orbitals, noscf_energy  = _reorder_noscf(noscf_orbitals, noscf_energy, scf, *fragments)
     
     # Orthogonalize noscf orbitals (do this in orthogonal AO basis)
     if orth is None:
         orth = addons.canonical_orth_(scf.get_ovlp())
     noscf_orth = np.matmul(inv(orth), noscf_orbitals).astype(np.complex128)
     noscf_orth, _ = np.linalg.qr(noscf_orth, 'complete')
-    return np.matmul(orth, noscf_orth)
+    noscf_orth = np.matmul(orth, noscf_orth)
+    return noscf_orth, noscf_energy
 
-
-def _reorder_noscf(noscf_orbitals, scf, *fragments):
+def _reorder_noscf(noscf_orbitals, noscf_energy, scf, *fragments):
     if len(np.shape(scf.mo_coeff)) == 3:
         occ_frag_a, occ_frag_b = [], []
         for frag in fragments:
@@ -84,9 +93,14 @@ def _reorder_noscf(noscf_orbitals, scf, *fragments):
         nind_b = _occ_sort(occ_frag_b)
         orbitals_a = noscf_orbitals[0,:,:]
         orbitals_b = noscf_orbitals[1,:,:]
+        energies_a = noscf_energy[0,:]
+        energies_b = noscf_energy[1,:]
         orbitals_a = orbitals_a[:,nind_a]
         orbitals_b = orbitals_b[:,nind_b]
+        energies_a = energies_a[nind_a]
+        energies_b = energies_b[nind_b]
         noscf_orbitals = np.stack((orbitals_a, orbitals_b))
+        noscf_energy = np.stack((energies_a, energies_b))
     elif scf.istype('GHF') | scf.istype('GKS'):
         occ_frag = []
         match_basis = []
@@ -98,13 +112,15 @@ def _reorder_noscf(noscf_orbitals, scf, *fragments):
         occ_frag = np.array(occ_frag)[match_basis]
         nind = _occ_sort(occ_frag)
         noscf_orbitals = noscf_orbitals[:,nind]
+        noscf_energy = noscf_energy[nind]
     else:
         occ_frag = []
         for frag in fragments:
             occ_frag.extend(frag.get_occ())
         nind = _occ_sort(occ_frag)
         noscf_orbitals = noscf_orbitals[:,nind]
-    return noscf_orbitals
+        noscf_energy = noscf_energy[nind]
+    return noscf_orbitals, noscf_energy
 
 def _occ_sort(occ_list):
     nocc = []
