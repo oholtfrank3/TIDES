@@ -78,7 +78,7 @@ class DIMER(MOCAP):
             else:
                 raise ValueError("Could not match spin component of C_AO to fock shape in get_OAO_coeff.")
         X = rt_scf.orth
-        return np.dot(X, C_AO)
+        return np.dot(inv(X), C_AO)
 
     def get_mo_ener(self, fock, rt_scf):
         scf_energies = self.dimer.mo_energy[0]
@@ -102,7 +102,7 @@ class NOSCF(MOCAP):
             else:
                 raise ValueError("Could not match spin component of C_AO to fock shape in get_OAO_coeff.")
         X = rt_scf.orth
-        return np.dot(X, C_AO)
+        return np.dot(inv(X), C_AO)
 
     def get_mo_ener(self, fock, rt_scf):
         noscf_fock = np.dot(self.noscf_orbitals.T, np.dot(fock, self.noscf_orbitals))
