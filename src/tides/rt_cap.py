@@ -5,17 +5,21 @@ from scipy.linalg import inv
 Molecular Orbital Complex Absorbing Potential (CAP)
 '''
 
-class DIMER_CAP:
+class MOCAP:
 	def __init__(self, dimer, expconst, emin, prefac=1, maxval=100):
 		self.expconst = expconst
 		self.emin = emin
 		self.prefac = prefac
 		self.maxval = maxval
 		self.dimer = dimer
+#		self.coeff_matrix = coeff_matrix
+#		self.mo_energies = mo_energies
 
-	def calculate_cap(self, rt_scf, fock):
+	def calculate_cap(self, rt_scf, fock, coeff_matrix=None, mo_energy=None):
+
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
-		mo_energy, mo_orth = np.linalg.eigh(fock_orth)
+		if mo_energy is None or coeff_matrix is None:
+			mo_energy, coeff_matrix = np.linalg.eigh(fock_orth)
 
 		damping_diagonal = []
 
@@ -33,113 +37,48 @@ class DIMER_CAP:
 		damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
 
 		damping_matrix = np.diag(damping_diagonal)
-		damping_matrix = np.dot(mo_orth, np.dot(damping_matrix, np.conj(mo_orth.T)))
+		damping_matrix = np.dot(coeff_matrix, np.dot(damping_matrix, np.conj(coeff_matrix.T)))
 
 		transform = inv(rt_scf.orth.T)
 		damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-		S_AO = np.dot(damping_matrix_ao.T, damping_matrix_ao)
-		dimer_basis = self.dimer.mo_coeff
-		damping_matrix_dimer = np.dot(self.dimer.mo_coeff.T, np.dot(S_AO, np.dot(damping_matrix_ao, np.dot(S_AO, self.dimer.mo_coeff))))
-		return 1j * damping_matrix_dimer
+		return 1j * damping_matrix_ao
 
 	def calculate_potential(self, rt_scf):
 		if rt_scf.nmat == 1:
-			return self.calculate_cap(rt_scf, rt_scf.fock_ao)
+			return self.calculate_cap(rt_scf, rt_scf.fock_ao, coeff_matrix, mo_energy)
 		else:
-			return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
+			results = [self.calculate_cap(rt_scf, rt_scf.fock_ao[spin], coeff_matrix[spin], mo_energy[spin] for spin in range(rt_scf.nmat)]
+			return np.stack(results)
 
-class NOSCF_CAP:
-    def __init__(self, expconst, emin, noscf_orbitals, prefac=1, maxval=100):
-        self.expconst = expconst
-        self.emin = emin
-        self.prefac = prefac
-        self.maxval = maxval
-        self.noscf_orbitals = noscf_orbitals
 
-        #everything can be the same for the CAP, we can just rotate it into the NOSCF basis at the end
-    def calculate_cap(self, rt_scf, fock):
-        # Construct fock_orth without CAP, this gives us the energies and the MO coefficients
-        fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
-        mo_energy, mo_orth = np.linalg.eigh(fock_orth)
+class DIMER:
+	def __init__(self, expconst, emin, dimer, prefac=1, maxval=100):
+		super().__init__(expconst, emin, prefac, maxval)
+		self.dimer = dimer
 
-        damping_diagonal = []
+	def calculate_potential(self, rt_scf):
+		X_inv = inv(rt_scf.orth)
+		mo_coeff = self.dimer.mo_coeff
+		scf_energy = self.dimer.mo_energy
+		if mo_coeff.ndim == 2:
+			dimer_coeff = np.dot(X_inv, mo_coeff)
+		else:
+			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])]) 
+		return super().calculate_potential(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
 
-        for energy in mo_energy:
-            energy_corrected = energy - self.emin
 
-            if energy_corrected > 0:
-                damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
-                if damping_term < (-1 * self.maxval):
-                    damping_term = -1 * self.maxval
-                damping_diagonal.append(damping_term)
-            else:
-                damping_diagonal.append(0)
+class NOSCF:
+	def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
+		super().__init__(expconst, emin, prefac, maxval)
+		self.dimer = dimer
+		self.noscf_orbitals = noscf_orbitals
 
-        damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-#	overlap_noscf = np.dot(self.noscf_orbitals.T.conj(), self.noscf_orbitals)
-#        eigvals_noscf, eigvecs_noscf = np.linalg.eigh(overlap_noscf)
-#        s_inv_sqrt = np.diag(1.0 / np.sqrt(eigvals_noscf))
-#        X_noscf = np.dot(eigvecs_noscf, s_inv_sqrt)
-#        s_noscf = np.diag(eigvecs_noscf)
-
-#        noscf_orth = np.dot(rt_scf.orth, self.noscf_orbitals)
-        damping_matrix = np.diag(damping_diagonal)
-        damping_matrix_ao_noscf = np.dot(self.noscf_orbitals, np.dot(damping_matrix, np.conj(self.noscf_orbitals.T)))
-        S_ao = rt_scf._scf.get_ovlp()
-        S_noscf = np.dot(self.noscf_orbitals.T.conj(), np.dot(S_ao, self.noscf_orbitals))
-        s, U = np.linalg.eigh(S_noscf)
-        s_inv_sqrt_noscf = np.dot(U, np.dot(np.diag(1.0/np.sqrt(s)), U.T.conj()))
-
-        damping_matrix_oao_noscf = np.dot(s_inv_sqrt_noscf, np.dot(damping_matrix_ao_noscf, s_inv_sqrt_noscf.T.conj()))
-        return 1j * damping_matrix_oao_noscf
-
-    def calculate_potential(self, rt_scf):
-        if rt_scf.nmat == 1:
-            return self.calculate_cap(rt_scf, rt_scf.fock_ao)
-        else:
-            return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
-
-class MOCAP:
-    def __init__(self, expconst, emin, prefac=1, maxval=100):
-        self.expconst = expconst
-        self.emin = emin
-        self.prefac = prefac
-        self.maxval = maxval
-
-    def calculate_cap(self, rt_scf, fock):
-        # Construct fock_orth without CAP
-        fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
-
-        # Calculate MO energies
-        mo_energy, mo_orth = np.linalg.eigh(fock_orth)
-
-        # Construct damping terms
-        damping_diagonal = []
-
-        for energy in mo_energy:
-            energy_corrected = energy - self.emin
-
-            if energy_corrected > 0:
-                damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
-                if damping_term < (-1 * self.maxval):
-                    damping_term = -1 * self.maxval
-                damping_diagonal.append(damping_term)
-            else:
-                damping_diagonal.append(0)
-
-        damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
-
-        # Construct damping matrix
-        damping_matrix = np.diag(damping_diagonal)
-        damping_matrix = np.dot(mo_orth, np.dot(damping_matrix, np.conj(mo_orth.T)))
-
-        # Rotate back to ao basis
-        transform = inv(rt_scf.orth.T)
-        damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-        return 1j * damping_matrix_ao
-
-    def calculate_potential(self, rt_scf):
-        if rt_scf.nmat == 1:
-            return self.calculate_cap(rt_scf, rt_scf.fock_ao)
-        else:
-            return np.stack((self.calculate_cap(rt_scf, rt_scf.fock_ao[0]), self.calculate_cap(rt_scf, rt_scf.fock_ao[1])))
+	def calculate_potential(self, rt_scf):
+		X_inv = inv(rt_scf.orth)
+		mo_coeff = self.noscf_orbitals
+		noscf_energy = self.noscf_energy
+		if mo_coeff.ndim == 2:
+			dimer_coeff = np.dot(X_inv, mo_coeff)
+		else:
+			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])]) 
+		return super().calculate_potential(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
