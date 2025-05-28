@@ -58,7 +58,7 @@ class DIMER(MOCAP):
 		self.dimer = dimer
 
 	def calculate_potential(self, rt_scf):
-		dimer = dimer if dimer is not None else self.dimer
+		dimer = self.dimer
 		X_inv = inv(rt_scf.orth)
 		mo_coeff = self.dimer.mo_coeff
 		scf_energy = self.dimer.mo_energy
