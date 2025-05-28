@@ -53,7 +53,7 @@ class MOCAP:
 
 
 class DIMER(MOCAP):
-	def __init__(self, expconst, emin, prefac=1, maxval=100, dimer):
+	def __init__(self, expconst, emin, prefac=1, maxval=100, dimer=None):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
 
