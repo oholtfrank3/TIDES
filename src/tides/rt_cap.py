@@ -1,4 +1,4 @@
-import numpy as np
+\import numpy as np
 from scipy.linalg import inv
 
 '''
@@ -53,12 +53,11 @@ class MOCAP:
 
 
 class DIMER(MOCAP):
-	def __init__(self, expconst, emin, prefac=1, maxval=100, dimer=None):
+	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
 
-	def calculate_potential(self, rt_scf, dimer=None):
-		dimer = dimer if dimer is not None else self.dimer
+	def calculate_potential(self, rt_scf):
 		X_inv = inv(rt_scf.orth)
 		mo_coeff = self.dimer.mo_coeff
 		scf_energy = self.dimer.mo_energy
