@@ -55,6 +55,7 @@ class MOCAP:
 class DIMER(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
+		self.dimer = None
 
 	def calculate_potential(self, rt_scf):
 		X_inv = inv(rt_scf.orth)
