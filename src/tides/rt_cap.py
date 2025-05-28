@@ -11,9 +11,6 @@ class MOCAP:
 		self.emin = emin
 		self.prefac = prefac
 		self.maxval = maxval
-		self.dimer = dimer
-#		self.coeff_matrix = coeff_matrix
-#		self.mo_energies = mo_energies
 
 	def calculate_cap(self, rt_scf, fock, coeff_matrix=None, mo_energy=None):
 
@@ -43,7 +40,7 @@ class MOCAP:
 		damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
 		return 1j * damping_matrix_ao
 
-	def calculate_potential(self, rt_scf):
+	def calculate_potential(self, rt_scf, coeff_matrix=None, mo_energy=None):
 		if rt_scf.nmat == 1:
 			return self.calculate_cap(rt_scf, rt_scf.fock_ao, coeff_matrix, mo_energy)
 		else:
@@ -51,7 +48,7 @@ class MOCAP:
 			return np.stack(results)
 
 
-class DIMER:
+class DIMER(MOCAP):
 	def __init__(self, expconst, emin, dimer, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
@@ -67,7 +64,7 @@ class DIMER:
 		return super().calculate_potential(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
 
 
-class NOSCF:
+class NOSCF(MOCAP):
 	def __init__(self, dimer, noscf_orbitals, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
