@@ -46,8 +46,8 @@ class MOCAP:
 		else:
 			results = []
 			for spin in range(rt_scf.nmat):
-				coeff_matrix = None if coeff_matrix is None else coeff_matrix[spin]
-				mo_energy = None if mo_energy is None else mo_energy[spin]
+				coeff_matrix = coeff_matrix[spin]  if coeff_matrix is not None else None
+				mo_energy = mo_energy[spin] if mo_energy is not None else None
 				results.append(self.calculate_cap(rt_scf, rt_scf.fock_ao[spin], coeff_matrix, mo_energy))
 			return np.stack(results)
 
