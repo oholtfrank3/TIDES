@@ -20,13 +20,16 @@ class MOCAP(ABC):
 #		if mo_energy is None or coeff_matrix is None:
 #			mo_energy, coeff_matrix = np.linalg.eigh(fock_orth)
 
-		if rt_scf.nmat > 1:
+		if getattr(rt_scf, 'nmat', 1) >1:
 			results = []
 			for spin in range(rt_scf.nmat):
 				cm = coeff_matrix[spin]  if coeff_matrix is not None else None
 				me = mo_energy[spin] if mo_energy is not None else None
-				results.append(self.calculate_cap(rt_scf, rt_scf.fock_ao[spin], cm, me))
-			return np.stack(results)
+				cap = self.calculate_cap(rt_scf, fock, cm, me)
+				cap = np.asarray(cap, dtype=np.complex128)
+				results.append(cap)
+			stack = np.stack(results).astype(np.complex128)
+			return stack
 
 		damping_diagonal = []
 
@@ -72,7 +75,7 @@ class FORTHO(MOCAP):
 	def calculate_potential(self, rt_scf):
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
 		mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
-		return super().calculate_potential(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
+		return super().calculate_potential(rt_scf, rt_scf.fock_ao, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
 
 class DIMER(MOCAP):
 	def __init__(self, expconst, emin, dimer, prefac=1, maxval=100):
@@ -87,7 +90,7 @@ class DIMER(MOCAP):
 			dimer_coeff = np.dot(X_inv, mo_coeff)
 		else:
 			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
-		return super().calculate_potential(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
+		return super().calculate_potential(rt_scf, rt_scf.fock_ao, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
 
 
 class NOSCF(MOCAP):
@@ -104,4 +107,4 @@ class NOSCF(MOCAP):
 			noscf_coeff = np.dot(X_inv, mo_coeff)
 		else:
 			noscf_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
-		return super().calculate_potential(rt_scf, coeff_matrix=noscf_coeff, mo_energy=scf_energy)
+		return super().calculate_potential(rt_scf, rt_scf.fock_ao, coeff_matrix=noscf_coeff, mo_energy=scf_energy)
