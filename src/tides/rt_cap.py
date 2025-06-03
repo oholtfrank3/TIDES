@@ -75,6 +75,10 @@ class FORTHO(MOCAP):
 	def calculate_potential(self, rt_scf):
 		fock=rt_scf.fock_ao
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
+		
+		print("fock shape:", fock.shape)
+		print("orth shape:", rt_scf.orth.shape)
+		print("fock orth shape:", fock_orth.shape)
 		mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
 		return super().calculate_potential(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
 
