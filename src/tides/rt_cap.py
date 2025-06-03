@@ -60,15 +60,16 @@ class FORTHO(MOCAP):
 		self.fock = None
 	def calculate_potential(self, rt_scf):
 		fock=rt_scf.fock_ao
-		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
 
 		if fock_orth.ndim == 2:
+			fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
 			mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
 		else:
 			mo_energy = []
 			fock_eigvecs = []
 			for spin in range(fock.shape[0]):
-				eigval, eigvec = np.linalg.eigh(fock_orth[spin])
+				fock_orth = np.dot(rt_scf.orth.T, np.dot(fock[spin],rt_scf.orth))
+				eigval, eigvec = np.linalg.eigh(fock_orth)
 				mo_energy.append(eigval)
 				fock_eigvecs.append(eigvec)
 		return super().calculate_potential_spin(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
