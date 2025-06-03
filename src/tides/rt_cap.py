@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import inv
 from abc import ABC, abstractmethod
-
+from tides.rt_utils import get_scf_orbitals, get_noscf_orbitals
 
 '''
 Molecular Orbital Complex Absorbing Potential (CAP)
@@ -14,7 +14,7 @@ class MOCAP(ABC):
 		self.prefac = prefac
 		self.maxval = maxval
 
-	def calculate_cap(self, rt_scf, fock, coeff_matrix=None, mo_energy=None):
+	def calculate_cap(self, rt_scf, coeff_matrix=None, mo_energy=None):
 
 #		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
 #		if mo_energy is None or coeff_matrix is None:
@@ -25,7 +25,7 @@ class MOCAP(ABC):
 			for spin in range(rt_scf.nmat):
 				cm = coeff_matrix[spin]  if coeff_matrix is not None else None
 				me = mo_energy[spin] if mo_energy is not None else None
-				cap = self.calculate_cap(rt_scf, rt_scf.fock_ao, cm, me)
+				cap = self.calculate_cap(rt_scf, cm, me)
 				cap = np.asarray(cap, dtype=np.complex128)
 				results.append(cap)
 			stack = np.stack(results).astype(np.complex128)
@@ -51,7 +51,7 @@ class MOCAP(ABC):
 
 		transform = inv(rt_scf.orth.T)
 		damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-		return 1j * damping_matrix_ao
+		return (1j * damping_matrix_ao).astype(np.complex128)
 
 #	def calculate_potential_spin(self, rt_scf, coeff_matrix=None, mo_energy=None):
 #		if rt_scf.nmat == 1:
@@ -73,6 +73,7 @@ class FORTHO(MOCAP):
 		super().__init__(expconst, emin, prefac, maxval)
 
 	def calculate_potential(self, rt_scf):
+		fock=rt_scf.fock_ao
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
 		mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
 		return super().calculate_potential(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
@@ -84,13 +85,23 @@ class DIMER(MOCAP):
 
 	def calculate_potential(self, rt_scf):
 		X_inv = inv(rt_scf.orth)
-		mo_coeff = self.dimer.mo_coeff
-		scf_energy = self.dimer.mo_energy
-		if mo_coeff.ndim == 2:
-			dimer_coeff = np.dot(X_inv, mo_coeff)
+
+	#here we are adding Ehrenfest compatibility, if we are ehrenfest then the energies and coefficient update whenever we update.
+	#maybe add a modulo statement here so that we only update whenever we update on the ehrenfest timestep, talk to kretchmer about nailing this down.
+		if rt_scf.istype('RT_Ehrenfest'):
+			get_scf_orbitals(rt_scf)
+			mo_coeff = rt_scf.mo_coeff_print
+			scf_energy = rt_scf.mo_energy_print
+
 		else:
-			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
-		return super().calculate_potential(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
+			mo_coeff = self.dimer.mo_coeff
+			scf_energy = self.dimer.mo_energy
+
+			if mo_coeff.ndim == 2:
+				dimer_coeff = np.dot(X_inv, mo_coeff)
+			else:
+				dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+			return super().calculate_potential(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
 
 
 class NOSCF(MOCAP):
@@ -101,10 +112,18 @@ class NOSCF(MOCAP):
 
 	def calculate_potential(self, rt_scf):
 		X_inv = inv(rt_scf.orth)
-		mo_coeff = self.noscf_orbitals
-		noscf_energy = self.noscf_energy
-		if mo_coeff.ndim == 2:
-			noscf_coeff = np.dot(X_inv, mo_coeff)
+
+		if rt_scf.istype('RT_Ehrenfest'):
+			get_noscf_orbitals(rt_scf)
+			mo_coeff = rt_scf.mo_coeff_print
+			noscf_energy = rt_scf.mo_energy_print
+
 		else:
-			noscf_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
-		return super().calculate_potential(rt_scf, coeff_matrix=noscf_coeff, mo_energy=scf_energy)
+			mo_coeff = self.noscf_orbitals
+			scf_energy = self.noscf_energy
+
+			if mo_coeff.ndim == 2:
+				dimer_coeff = np.dot(X_inv, mo_coeff)
+			else:
+				dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+			return super().calculate_potential(rt_scf, coeff_matrix=noscf_coeff, mo_energy=noscf_energy)
