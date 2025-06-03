@@ -16,21 +16,6 @@ class MOCAP(ABC):
 
 	def calculate_cap(self, rt_scf, coeff_matrix=None, mo_energy=None):
 
-#		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
-#		if mo_energy is None or coeff_matrix is None:
-#			mo_energy, coeff_matrix = np.linalg.eigh(fock_orth)
-
-		if getattr(rt_scf, 'nmat', 1) >1:
-			results = []
-			for spin in range(rt_scf.nmat):
-				cm = coeff_matrix[spin]  if coeff_matrix is not None else None
-				me = mo_energy[spin] if mo_energy is not None else None
-				cap = self.calculate_cap(rt_scf, cm, me)
-				cap = np.asarray(cap, dtype=np.complex128)
-				results.append(cap)
-			stack = np.stack(results).astype(np.complex128)
-			return stack
-
 		damping_diagonal = []
 
 		for energy in mo_energy:
@@ -51,18 +36,18 @@ class MOCAP(ABC):
 
 		transform = inv(rt_scf.orth.T)
 		damping_matrix_ao = np.dot(transform, np.dot(damping_matrix, transform.T))
-		return (1j * damping_matrix_ao).astype(np.complex128)
+		return 1j * damping_matrix_ao
 
-#	def calculate_potential_spin(self, rt_scf, coeff_matrix=None, mo_energy=None):
-#		if rt_scf.nmat == 1:
-#			return self.calculate_cap(rt_scf, rt_scf.fock_ao, coeff_matrix, mo_energy)
-#		else:
-#			results = []
-#			for spin in range(rt_scf.nmat):
-#				cm = coeff_matrix[spin]  if coeff_matrix is not None else None
-#				me = mo_energy[spin] if mo_energy is not None else None
-#				results.append(self.calculate_cap(rt_scf, rt_scf.fock_ao[spin], cm, me))
-#			return np.stack(results)
+	def calculate_potential_spin(self, rt_scf, coeff_matrix=None, mo_energy=None):
+		if rt_scf.nmat == 1:
+			return self.calculate_cap(rt_scf, coeff_matrix, mo_energy)
+		else:
+			results = []
+			for spin in range(rt_scf.nmat):
+				cm = coeff_matrix[spin]  if coeff_matrix is not None else None
+				me = mo_energy[spin] if mo_energy is not None else None
+				results.append(self.calculate_cap(rt_scf, rt_scf.fock_ao[spin], cm, me))
+			return np.stack(results)
 
 	def calculate_potential(self, rt_scf, coeff_matrix=None, mo_energy=None):
 		pass
@@ -71,15 +56,15 @@ class MOCAP(ABC):
 class FORTHO(MOCAP):
 	def __init__(self, expconst, emin, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
-
+		self.fock = None
 	def calculate_potential(self, rt_scf):
 		fock=rt_scf.fock_ao
 		fock_orth = np.dot(rt_scf.orth.T, np.dot(fock,rt_scf.orth))
-		
-		print("fock shape:", fock.shape)
-		print("orth shape:", rt_scf.orth.shape)
-		print("fock orth shape:", fock_orth.shape)
-		mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
+
+		if fock_orth.ndim == 2:
+			mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
+		else:
+			mo_energy, fock_eigvecs = np.array([np.linalg.eigh(fock_orth[spin]) for spin in range(fock_orth.shape[0])])
 		return super().calculate_potential(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
 
 class DIMER(MOCAP):
