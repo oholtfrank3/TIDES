@@ -65,7 +65,12 @@ class FORTHO(MOCAP):
 		if fock_orth.ndim == 2:
 			mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
 		else:
-			mo_energy, fock_eigvecs = np.array([np.linalg.eigh(fock_orth[spin]) for spin in range(fock.shape[0])])
+			mo_energy = []
+			fock_eigvecs = []
+			for spin in range(fock.shape[0]):
+				eigval, eigvec = np.linalg.eigh(fock_orth[spin])
+				mo_energy.append(eigval)
+				fock_eigvecs.append(eigvec)
 		return super().calculate_potential_spin(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
 
 class DIMER(MOCAP):
@@ -82,7 +87,6 @@ class DIMER(MOCAP):
 			get_scf_orbitals(rt_scf)
 			mo_coeff = rt_scf.mo_coeff_print
 			scf_energy = rt_scf.mo_energy_print
-
 		else:
 			mo_coeff = self.dimer.mo_coeff
 			scf_energy = self.dimer.mo_energy
@@ -107,7 +111,6 @@ class NOSCF(MOCAP):
 			get_noscf_orbitals(rt_scf)
 			mo_coeff = rt_scf.mo_coeff_print
 			noscf_energy = rt_scf.mo_energy_print
-
 		else:
 			mo_coeff = self.noscf_orbitals
 			scf_energy = self.noscf_energy
