@@ -35,12 +35,19 @@ def input_fragments(rt_scf, *fragments):
 
 def _update_mo_coeff_print(rt_ehrenfest):
     rt_ehrenfest.get_mo_coeff_print(rt_ehrenfest)
+#idk if i need to update the energies for here.
+
 
 def get_scf_orbitals(rt_ehrenfest):
     mo_coeff = np.copy(rt_ehrenfest._scf.mo_coeff)
+    mo_energy = np.copy(rt_ehrenfest._scf.mo_energy)
+    #now we propogate our energies and orbitals
     rt_ehrenfest._scf.kernel()
     rt_ehrenfest.mo_coeff_print = rt_ehrenfest._scf.mo_coeff
+    rt_ehrenfest.mo_energy_print = rt_ehrenfest._scf.mo_energy
     rt_ehrenfest._scf.mo_coeff = mo_coeff
+    #add the energies here to be able to use the CAP with time propogation, as ehrenfest will change the energies
+    rt_ehrenfest._scf.mo_energy = mo_energy
 
 def get_noscf_orbitals(rt_ehrenfest):
     # Update fragments to new geometry, solve scf problem
@@ -53,7 +60,11 @@ def get_noscf_orbitals(rt_ehrenfest):
         frag.verbose = 0
         frag.kernel()
         frag.match_indices = frag_indices
-    rt_ehrenfest.mo_coeff_print = noscfbasis(rt_ehrenfest._scf, *rt_ehrenfest.fragments)
+    mo_coeff, mo_energy = noscfbasis(rt_ehrenfest._scf, *rt_ehrenfest.fragments)
+    rt_ehrenfest.mo_coeff_print = mo_coeff
+    rt_ehrenfest.mo_energy_print = mo_energy
+
+#    rt_ehrenfest.mo_coeff_print = noscfbasis(rt_ehrenfest._scf, *rt_ehrenfest.fragments)
 
 def restart_from_chkfile(rt_scf):
     rt_scf._log.note(f'### Restarting from chkfile: {rt_scf.chkfile} ###\n')
