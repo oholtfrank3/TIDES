@@ -119,5 +119,5 @@ class NOSCF(MOCAP):
 		if noscf_coeff.ndim == 2:
 			noscf_coeff = np.dot(X_inv, noscf_coeff)
 		else:
-			noscf_coeff = np.array([np.dot(X_inv, noscf_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+			noscf_coeff = np.array([np.dot(X_inv, noscf_coeff[spin]) for spin in range(noscf_coeff.shape[0])])
 		return super().calculate_potential_spin(rt_scf, coeff_matrix=noscf_coeff, mo_energy=noscf_energy)
