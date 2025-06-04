@@ -70,7 +70,14 @@ def noscfbasis(scf, *fragments, reorder=True, orth=None):
         noscf_orbitals = _reorder_noscf(noscf_orbitals, scf, *fragments)
         energy = np.concatenate([frag.get_occ() for frag in fragments], axis=1)
         nind = _occ_sort(energy)
-        noscf_energy = [np.array(e)[nind] for e in noscf_energy]
+        if len(np.shape(scf.mo_coeff)) == 3:
+            nind_a = _occ_sort([frag.get_occ()[0] for frag in fragments])
+            nind_b = _occ_sort([frag.get_occ()[1] for frag in fragments])
+            energy_a = np.concatenate([np.array(e)[0] for e in noscf_energy])
+            energy_b = np.concatenate([np.array(e)[1] for e in noscf_energy])
+            noscf_energy = np.stack(((energy_a)[nind_a], np.array(energy_b)[nind_b]))
+        else:
+            noscf_energy = np.concatenate([np.array(e) for e in noscf_energy])[nind]
     
     # Orthogonalize noscf orbitals (do this in orthogonal AO basis)
     if orth is None:
