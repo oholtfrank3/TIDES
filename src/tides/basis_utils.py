@@ -69,7 +69,10 @@ def noscfbasis(scf, *fragments, reorder=True, orth=None):
         # This may give the wrong order if you are projecting onto bizarre fragments, since the occupation of each fragment is used to reorder
         noscf_orbitals = _reorder_noscf(noscf_orbitals, scf, *fragments)
         energy = np.concatenate([frag.get_occ() for frag in fragments], axis=1)
-        nind = _occ_sort(energy)
+        if energy.ndim == 2:
+            nind = _occ_sort(energy[0])
+        else:
+            nind = _occ_sort(energy)
         if len(np.shape(scf.mo_coeff)) == 3:
             nind_a = _occ_sort([frag.get_occ()[0] for frag in fragments])
             nind_b = _occ_sort([frag.get_occ()[1] for frag in fragments])
