@@ -75,7 +75,7 @@ class FORTHO(MOCAP):
 		return super().calculate_potential_spin(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
 
 class DIMER(MOCAP):
-	def __init__(self, expconst, emin, dimer, prefac=1, maxval=100):
+	def __init__(self, expconst, emin, dimer=None, prefac=1, maxval=100):
 		super().__init__(expconst, emin, prefac, maxval)
 		self.dimer = dimer
 
