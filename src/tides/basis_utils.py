@@ -68,7 +68,7 @@ def noscfbasis(scf, *fragments, reorder=True, orth=None):
         # Reorder so that all occupied orbitals appear before virtual orbitals
         # This may give the wrong order if you are projecting onto bizarre fragments, since the occupation of each fragment is used to reorder
         noscf_orbitals = _reorder_noscf(noscf_orbitals, scf, *fragments)
-        energy = np.concatenate([frag.get_occ() for frag in fragments])
+        energy = np.concatenate([frag.get_occ() for frag in fragments], axis=1)
         nind = _occ_sort(energy)
         noscf_energy = [np.array(e)[nind] for e in noscf_energy]
     
