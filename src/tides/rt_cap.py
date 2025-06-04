@@ -116,8 +116,8 @@ class NOSCF(MOCAP):
 			noscf_coeff = self.noscf_orbitals
 			noscf_energy = self.noscf_energy
 
-		if mo_coeff.ndim == 2:
-			dimer_coeff = np.dot(X_inv, mo_coeff)
+		if noscf_coeff.ndim == 2:
+			noscf_coeff = np.dot(X_inv, noscf_coeff)
 		else:
-			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+			noscf_coeff = np.array([np.dot(X_inv, noscf_coeff[spin]) for spin in range(mo_coeff.shape[0])])
 		return super().calculate_potential_spin(rt_scf, coeff_matrix=noscf_coeff, mo_energy=noscf_energy)
