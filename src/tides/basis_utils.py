@@ -78,7 +78,7 @@ def noscfbasis(scf, *fragments, reorder=True, orth=None):
             nind_b = _occ_sort(np.concatenate([frag.get_occ()[1] for frag in fragments]))
             energy_a = np.concatenate([np.array(e)[0] for e in noscf_energy])
             energy_b = np.concatenate([np.array(e)[1] for e in noscf_energy])
-            noscf_energy = np.stack(((energy_a)[nind_a], np.array(energy_b)[nind_b]))
+            noscf_energy = np.stack(((energy_a)[list(nind_a)], np.array(energy_b)[list(nind_b)]))
         else:
             noscf_energy = np.concatenate([np.array(e) for e in noscf_energy])[nind]
     
