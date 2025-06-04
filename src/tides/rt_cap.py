@@ -112,6 +112,10 @@ class NOSCF(MOCAP):
 			get_noscf_orbitals(rt_scf)
 			noscf_coeff = rt_scf.mo_coeff_print
 			noscf_energy = rt_scf.mo_energy_print
+			print("mo_coeff type:", type(noscf_coeff), "shape:", getattr(noscf_coeff, "shape", None))
+			print("mo_energy type:", type(noscf_energy), "shape:", getattr(noscf_energy, "shape", None))
+			print("First few mo_coeff values:", noscf_coeff.ravel()[:5])
+			print("First few mo_energy values:", noscf_energy.ravel()[:5])
 		else:
 			noscf_coeff = self.noscf_orbitals
 			noscf_energy = self.noscf_energy
