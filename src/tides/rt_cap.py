@@ -110,11 +110,11 @@ class NOSCF(MOCAP):
 
 		if rt_scf.istype('RT_Ehrenfest'):
 			get_noscf_orbitals(rt_scf)
-			mo_coeff = rt_scf.mo_coeff_print
+			noscf_coeff = rt_scf.mo_coeff_print
 			noscf_energy = rt_scf.mo_energy_print
 		else:
-			mo_coeff = self.noscf_orbitals
-			scf_energy = self.noscf_energy
+			noscf_coeff = self.noscf_orbitals
+			noscf_energy = self.noscf_energy
 
 		if mo_coeff.ndim == 2:
 			dimer_coeff = np.dot(X_inv, mo_coeff)
