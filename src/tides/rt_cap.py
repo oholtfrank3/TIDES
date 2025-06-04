@@ -106,6 +106,7 @@ class NOSCF(MOCAP):
 		self.noscf_energy = None
 
 	def calculate_potential(self, rt_scf):
+		print("Entered NOSCF.calculate_potential")
 		X_inv = inv(rt_scf.orth)
 
 		if rt_scf.istype('RT_Ehrenfest'):
