@@ -92,11 +92,11 @@ class DIMER(MOCAP):
 			mo_coeff = self.dimer.mo_coeff
 			scf_energy = self.dimer.mo_energy
 
-			if mo_coeff.ndim == 2:
-				dimer_coeff = np.dot(X_inv, mo_coeff)
-			else:
-				dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
-			return super().calculate_potential_spin(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
+		if mo_coeff.ndim == 2:
+			dimer_coeff = np.dot(X_inv, mo_coeff)
+		else:
+			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+		return super().calculate_potential_spin(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
 
 
 class NOSCF(MOCAP):
@@ -116,8 +116,8 @@ class NOSCF(MOCAP):
 			mo_coeff = self.noscf_orbitals
 			scf_energy = self.noscf_energy
 
-			if mo_coeff.ndim == 2:
-				dimer_coeff = np.dot(X_inv, mo_coeff)
-			else:
-				dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
-			return super().calculate_potential_spin(rt_scf, coeff_matrix=noscf_coeff, mo_energy=noscf_energy)
+		if mo_coeff.ndim == 2:
+			dimer_coeff = np.dot(X_inv, mo_coeff)
+		else:
+			dimer_coeff = np.array([np.dot(X_inv, mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+		return super().calculate_potential_spin(rt_scf, coeff_matrix=noscf_coeff, mo_energy=noscf_energy)
