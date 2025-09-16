@@ -6,7 +6,7 @@ from pyscf.lib import logger
 from tides.rt_prop import propagate
 from tides import rt_observables
 from tides import rt_output
-from tides.rt_utils import restart_from_chkfile
+from tides.rt_utils_edit import restart_from_chkfile
 import os
 
 
@@ -23,7 +23,7 @@ class RT_SCF:
         self._scf = scf
         self.ovlp = self._scf.get_ovlp()
         self.occ = self._scf.get_occ()
-        
+
         self.verbose = verbose
         self._potential = []
         self.fragments = []
@@ -107,8 +107,6 @@ class RT_SCF:
             if hasattr(self, 'fh'):
                 self.fh.close()
             if hasattr(self, '_xyz_fh'):
-                # This is only important for unfrozen nuclei, printing .xyz files
-                # Putting this here anyways for RT_Ehrenfest and other future derived classes
                 self._xyz_fh.close()
 
         return self

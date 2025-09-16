@@ -26,14 +26,10 @@ def parse_output(filename):
     frag_charge = []
     alpha_energies = []
     beta_energies = []
-<<<<<<< HEAD
     plane_partition_charge = []
-    
-=======
     s2 = []
     _2s_1 = []
-
->>>>>>> main
+    
     for idx, line in enumerate(lines):
         if 'Current Time' in line:
             time.append(get_time(line))
@@ -177,13 +173,11 @@ def get_length(coords, atoms):
         lens.append(np.sqrt(dx ** 2 + dy ** 2 + dz ** 2))
     return lens
 
-<<<<<<< HEAD
 def get_plane_partition_charge(line):
     import re, ast
     payload = line.split(':', 1)[1].strip()
     matches = re.findall(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?=\s*[+\-]\s*\d*\.?\d+(?:[eE][-+]?\d+)?j)', payload)
     return [float(m) for m in matches]
-=======
+
 def get_spin_square(line):
     return float(line.split()[1])
->>>>>>> main

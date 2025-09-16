@@ -2,7 +2,7 @@ import numpy as np
 from tides import rt_integrators
 from tides import rt_observables
 from tides import rt_output
-from tides.rt_utils import update_chkfile, print_info
+from tides.rt_utils_edit import update_chkfile, print_info
 
 '''
 Real-time Propagation

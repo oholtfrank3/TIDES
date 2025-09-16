@@ -1,15 +1,13 @@
 import numpy as np
 from tides import rt_output
-from tides.basis_utils import _mask_fragment_basis
+from tides.basis_utils_edit import _mask_fragment_basis
 from tides.hirshfeld import hirshfeld_partition, get_weights
-from tides.rt_utils import _update_mo_coeff_print
+from tides.rt_utils_edit import _update_mo_coeff_print
 from pyscf import lib
 from pyscf.tools import cubegen
-<<<<<<< HEAD
-=======
-from datetime import datetime
->>>>>>> main
 import os
+from datetime import datetime
+
 
 '''
 Real-time Observable Functions
@@ -32,10 +30,10 @@ def _init_observables(rt_scf):
         'mag'                  : False,
         'hirsh_mag'            : False,
         'hirsh_atom_mag'       : False,
+        'spin_square'          : False,
         'mo_occ'               : False,
         'nuclei'               : False,
         'cube_density'         : False,
-        'spin_square'          : False,
         'mo_coeff'             : False,
         'den_ao'               : False,
         'fock_ao'              : False,
@@ -60,10 +58,10 @@ def _init_observables(rt_scf):
         'mo_occ'               : [get_mo_occ, rt_output._print_mo_occ],
         'nuclei'               : [get_nuclei, rt_output._print_nuclei],
         'cube_density'         : [get_cube_density, lambda *args: None],
-        'spin_square'          : [get_spin_square, rt_output._print_spin_square],
         'mo_coeff'             : [lambda *args: None, rt_output._print_mo_coeff],
         'den_ao'               : [lambda *args: None, rt_output._print_den_ao],
         'fock_ao'              : [lambda *args: None, rt_output._print_fock_ao],
+        'spin_square'          : [get_spin_square, rt_output._print_spin_square],
         }
 
 
@@ -83,6 +81,27 @@ def _check_observables(rt_scf):
     ### For whatever reason, the dip_moment call for GHF and GKS has arg name 'unit_symbol' instead of 'unit'
     if rt_scf._scf.istype('GHF') | rt_scf._scf.istype('GKS'):
         rt_scf._observables_functions['dipole'][0] = _temp_get_dipole
+
+    for key, print_value in rt_scf.observables.items():
+        if not print_value:
+            del rt_scf._observables_functions[key]
+
+
+
+def get_observables(rt_scf):
+    if rt_scf.observables.get('plane_partition_charge', False):
+        rt_scf.grids, rt_scf.atom_weights = get_weights(rt_scf._scf.mol)
+    elif rt_scf.istype('RT_Ehrenfest'):
+        if 'mo_occ' in rt_scf.observables:
+            _update_mo_coeff_print(rt_scf)
+        if rt_scf.hirshfeld:
+            rt_scf.grids, rt_scf.atom_weights = get_weights(rt_scf._scf.mol)
+
+    for key, function in rt_scf._observables_functions.items():
+          function[0](rt_scf, rt_scf.den_ao)
+          function[1](rt_scf)
+
+    rt_output.update_output(rt_scf)
 
     # If we are printing nuclei, we must be a RT_Ehrenfest object
     if rt_scf.observables['nuclei']:
@@ -117,30 +136,6 @@ def _check_observables(rt_scf):
         elif rt_scf.verbose > 2:
             rt_scf._update_xyz = rt_output._nuclei_coords
 
-    for key, print_value in rt_scf.observables.items():
-        if not print_value:
-            del rt_scf._observables_functions[key]
-
-    # Now rt_scf._observables_functions only has observables to be calculated
-    # One final check here that if any observable is being calculated, rt_scf.verbose > 2
-    # Likely no one will ever run with verbose < 3 (no observables will be printed)
-    if rt_scf._observables_functions:
-        assert rt_scf.verbose > 2
-
-def get_observables(rt_scf):
-    if rt_scf.observables.get('plane_partition_charge', False):
-        rt_scf.grids, rt_scf.atom_weights = get_weights(rt_scf._scf.mol)
-    elif rt_scf.istype('RT_Ehrenfest'):
-        if 'mo_occ' in rt_scf.observables:
-            _update_mo_coeff_print(rt_scf)
-        if rt_scf.hirshfeld:
-            rt_scf.grids, rt_scf.atom_weights = get_weights(rt_scf._scf.mol)
-
-    for key, function in rt_scf._observables_functions.items():
-          function[0](rt_scf, rt_scf.den_ao)
-          function[1](rt_scf)
-
-    rt_output.update_output(rt_scf)
 
 def get_energy(rt_scf, den_ao):
     rt_scf._energy = []
@@ -327,7 +322,6 @@ def get_spin_square(rt_scf, den_ao):
     else:
         mo_coeff = rt_scf._scf.mo_coeff[:,rt_scf.occ>0]
 
-<<<<<<< HEAD
     rt_scf._s2, _ = rt_scf._scf.spin_square(mo_coeff)
 
 
@@ -368,6 +362,3 @@ def get_plane_partition_charge(rt_scf, den_ao):
     charge_frag2 = np.sum(rho[:, frag2_mask])
 
     rt_scf._plane_partition_charge = [charge_frag1, charge_frag2]
-=======
-    rt_scf._s2, rt_scf._2s_p1 = rt_scf._scf.spin_square(mo_coeff, s=rt_scf.ovlp)
->>>>>>> main

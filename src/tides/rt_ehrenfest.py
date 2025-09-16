@@ -3,7 +3,7 @@ from pyscf import gto, dft, scf, grad
 from tides import ehrenfest_force
 from tides.rt_scf import RT_SCF
 from tides.rt_nuclei import Nuc
-from tides.rt_utils import _sym_orth, get_scf_orbitals
+from tides.rt_utils_edit import _sym_orth, get_scf_orbitals
 
 '''
 Real-time SCF + Ehrenfest
