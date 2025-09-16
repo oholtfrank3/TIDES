@@ -1,13 +1,11 @@
 import numpy as np
 from pyscf import scf
-from tides.basis_utils import _match_fragment_atom, _mask_fragment_basis, noscfbasis, _read_mol, _write_mol
+from tides.basis_utils1 import _match_fragment_atom, _mask_fragment_basis, noscfbasis, _read_mol, _write_mol
 from tides import ehrenfest_force
 
 '''
 Real-time Utilities
 '''
-
-#should excite be called ionize?
 
 def excite(rt_scf, excitation_alpha=None, excitation_beta=None):
     # Excite an electron from the index specified
@@ -19,43 +17,6 @@ def excite(rt_scf, excitation_alpha=None, excitation_beta=None):
             rt_scf.occ[0][excitation_alpha-1] -= 1
         if excitation_beta:
             rt_scf.occ[1][excitation_beta-1] -= 1
-
-    rt_scf.den_ao = rt_scf._scf.make_rdm1(mo_occ=rt_scf.occ)
-
-
-
-#being able to do excitation is important for rICD and VPD.
-def single_excite(rt_scf, excitation_alpha_from=None, excitation_alpha_to=None, excitation_beta_from=None, excitation_beta_to=None):
-    # Excite an electron from the index specified, to the index specified
-    #if the _to is None, then the electron will be ionized.
-
-    if rt_scf.nmat == 1:
-        if rt_scf.occ[excitation_alpha-1] == 0:
-            raise Not(f'Cannot excite electron from index {excitation_alpha} as it is unoccupied.')
-        rt_scf.occ[excitation_alpha_from-1] -= 1  # remove
-
-        if excitation_alpha_to is not None:
-            if rt_scf.occ[excitation_alpha_to-1] == 2:
-                raise Not(f'Cannot excite electron to index {excitation_alpha_to} as it is already doubly occupied.')
-            rt_scf.occ[excitation_alpha_to-1] += 1  # add
-    # Unrestricted case (alpha/beta)
-    else:
-        if excitation_alpha_from is not None:
-            if rt_scf.occ[0][excitation_alpha_from-1] == 0:
-                raise NotImplementedError("Cannot remove electron: alpha orbital is already empty.")
-            rt_scf.occ[0][excitation_alpha_from-1] -= 1
-            if excitation_alpha_to is not None:
-                if rt_scf.occ[0][excitation_alpha_to-1] == 1:
-                    raise NotImplementedError("Cannot add electron: alpha orbital is already full.")
-                rt_scf.occ[0][excitation_alpha_to-1] += 1
-        if excitation_beta_from is not None:
-            if rt_scf.occ[1][excitation_beta_from-1] == 0:
-                raise NotImplementedError("Cannot remove electron: beta orbital is already empty.")
-            rt_scf.occ[1][excitation_beta_from-1] -= 1
-            if excitation_beta_to is not None:
-                if rt_scf.occ[1][excitation_beta_to-1] == 1:
-                    raise NotImplementedError("Cannot add electron: beta orbital is already full.")
-                rt_scf.occ[1][excitation_beta_to-1] += 1
 
     rt_scf.den_ao = rt_scf._scf.make_rdm1(mo_occ=rt_scf.occ)
 
@@ -74,19 +35,12 @@ def input_fragments(rt_scf, *fragments):
 
 def _update_mo_coeff_print(rt_ehrenfest):
     rt_ehrenfest.get_mo_coeff_print(rt_ehrenfest)
-#idk if i need to update the energies for here.
-
 
 def get_scf_orbitals(rt_ehrenfest):
     mo_coeff = np.copy(rt_ehrenfest._scf.mo_coeff)
-    mo_energy = np.copy(rt_ehrenfest._scf.mo_energy)
-    #now we propogate our energies and orbitals
     rt_ehrenfest._scf.kernel()
     rt_ehrenfest.mo_coeff_print = rt_ehrenfest._scf.mo_coeff
-    rt_ehrenfest.mo_energy_print = rt_ehrenfest._scf.mo_energy
     rt_ehrenfest._scf.mo_coeff = mo_coeff
-    #add the energies here to be able to use the CAP with time propogation, as ehrenfest will change the energies
-    rt_ehrenfest._scf.mo_energy = mo_energy
 
 def get_noscf_orbitals(rt_ehrenfest):
     # Update fragments to new geometry, solve scf problem
@@ -99,11 +53,7 @@ def get_noscf_orbitals(rt_ehrenfest):
         frag.verbose = 0
         frag.kernel()
         frag.match_indices = frag_indices
-    mo_coeff, mo_energy = noscfbasis(rt_ehrenfest._scf, *rt_ehrenfest.fragments)
-    rt_ehrenfest.mo_coeff_print = mo_coeff
-    rt_ehrenfest.mo_energy_print = mo_energy
-
-#    rt_ehrenfest.mo_coeff_print = noscfbasis(rt_ehrenfest._scf, *rt_ehrenfest.fragments)
+    rt_ehrenfest.mo_coeff_print = noscfbasis(rt_ehrenfest._scf, *rt_ehrenfest.fragments)
 
 def restart_from_chkfile(rt_scf):
     rt_scf._log.note(f'### Restarting from chkfile: {rt_scf.chkfile} ###\n')

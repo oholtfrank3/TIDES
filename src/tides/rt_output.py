@@ -84,15 +84,21 @@ def _print_nuclei(rt_scf):
     nuclei = rt_scf._nuclei
     rt_scf._log.note(f'Nuclear Coordinates (Angstrom):')
     for atom in zip(nuclei[0], nuclei[1]):
-        rt_scf._log.note(f' {atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
+        coords_str = "\t".join([f"{x:.11f}" for x in atom[1]])
+        rt_scf._log.note(f' {atom[0]} \t {coords_str}')
+   #      rt_scf._log.note(f' {atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
     rt_scf._log.note(' ')
     rt_scf._log.info(f'Nuclear Velocities (Angstrom / AU):')
     for atom in zip(nuclei[0], nuclei[2]):
-        rt_scf._log.info(f' {atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
+#        rt_scf._log.info(f' {atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
+        vel_str = "\t".join([f"{x:.11f}" for x in atom[1]])
+        rt_scf._log.info(f' {atom[0]} \t {vel_str}')
     rt_scf._log.info(' ')
     rt_scf._log.debug(f'Nuclear Forces (AU):')
     for atom in zip(nuclei[0], nuclei[3]):
-        rt_scf._log.debug(f' {atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
+#        rt_scf._log.debug(f' {atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
+        force_str = "\t".join([f"{x:.11f}" for x in atom[1]])
+        rt_scf._log.debug(f' {atom[0]} \t {force_str}')
     rt_scf._log.debug(' ')
 
 def _print_mo_coeff(rt_scf):
@@ -103,3 +109,7 @@ def _print_den_ao(rt_scf):
 
 def _print_fock_ao(rt_scf):
     rt_scf._log.note(f'\n{"+"*25} Fock Matrix (AO Basis): {"+"*25}\n {rt_scf.fock_ao} \n{"+"*50}\n')
+
+def _print_plane_partition_charge(rt_scf):
+    charge = rt_scf._plane_partition_charge
+    rt_scf._log.note(f'Plane Partition Charges: Frag1={charge[0]:.6f}, Frag2={charge[1]:.6f}\n')

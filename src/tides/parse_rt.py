@@ -28,6 +28,7 @@ def parse_output(filename):
     frag_charge = []
     alpha_energies = []
     beta_energies = []
+    plane_partition_charge = []
     
     for idx, line in enumerate(lines):
         if 'Current Time' in line:
@@ -46,6 +47,8 @@ def parse_output(filename):
             mulliken_charge.append(get_charge(line))
         if 'Fragment' in line and 'Electronic Charge' in line:
             frag_charge.append(get_frag_charge(line))
+        if 'Plane Partition Charges' in line:
+            plane_partition_charge.append(get_plane_partition_charge(line))
         if 'Atomic Electronic Charges' in line and 'Hirshfeld' not in line:
             mulliken_atom_charge.append(get_atom_charge(lines[idx+1:idx+mol_length+1]))
         if 'Hirshfeld Atomic Electronic Charges' in line:
@@ -98,6 +101,7 @@ def parse_output(filename):
     'coords': coords,
     'vels': vels,
     'frag_charge': frag_charge,
+    'plane_partition_charge': plane_partition_charge,
     'alpha_energies': alpha_energies,
     'beta_energies': beta_energies,
     }
@@ -186,3 +190,9 @@ def get_length(coords, atoms):
         dx, dy, dz = dist_3d[0], dist_3d[1], dist_3d[2]
         lens.append(np.sqrt(dx ** 2 + dy ** 2 + dz ** 2))
     return lens
+
+def get_plane_partition_charge(line):
+    import re, ast
+    payload = line.split(':', 1)[1].strip()
+    matches = re.findall(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?(?=\s*[+\-]\s*\d*\.?\d+(?:[eE][-+]?\d+)?j)', payload)
+    return [float(m) for m in matches]
