@@ -1,14 +1,11 @@
 import numpy as np
 from tides import rt_output
-from tides.basis_utils_edit import _mask_fragment_basis
+from tides.basis_utils import _mask_fragment_basis
 from tides.hirshfeld import hirshfeld_partition, get_weights
-from tides.rt_utils_edit import _update_mo_coeff_print
+from tides.rt_utils import _update_mo_coeff_print
 from pyscf import lib
-from pyscf.lib import logger
 from pyscf.tools import cubegen
 import os
-from datetime import datetime
-
 
 '''
 Real-time Observable Functions
@@ -20,16 +17,17 @@ def _init_observables(rt_scf):
         'dipole'               : False,
         'quadrupole'           : False,
         'charge'               : False,
+        'atom_charge'          : False,
         'mulliken_charge'      : False,
         'mulliken_atom_charge' : False,
         'hirsh_charge'         : False,
         'hirsh_atom_charge'    : False,
         'hirshi_atom_charge'   : False, #HORTON Hirshfeld-I
+        'mbis_atom_charge'     : False, #HORTON MBIS
         'plane_partition_charge': False, # Plane partitioning charge
         'mag'                  : False,
         'hirsh_mag'            : False,
         'hirsh_atom_mag'       : False,
-        'spin_square'          : False,
         'mo_occ'               : False,
         'nuclei'               : False,
         'cube_density'         : False,
@@ -43,6 +41,7 @@ def _init_observables(rt_scf):
         'dipole'               : [get_dipole, rt_output._print_dipole],
         'quadrupole'           : [get_quadrupole, rt_output._print_quadrupole],
         'charge'               : [get_charge, rt_output._print_charge],
+        'atom_charge'          : [get_mulliken_charge, rt_output._print_mulliken_charge],
         'mulliken_charge'      : [get_mulliken_charge, rt_output._print_mulliken_charge],
         'mulliken_atom_charge' : [get_mulliken_charge, rt_output._print_mulliken_charge],
         'hirsh_charge'         : [get_hirshfeld_charge, rt_output._print_hirshfeld_charge],
@@ -59,7 +58,6 @@ def _init_observables(rt_scf):
         'mo_coeff'             : [lambda *args: None, rt_output._print_mo_coeff],
         'den_ao'               : [lambda *args: None, rt_output._print_den_ao],
         'fock_ao'              : [lambda *args: None, rt_output._print_fock_ao],
-        'spin_square'          : [get_spin_square, rt_output._print_spin_square],
         }
 
 
@@ -80,44 +78,10 @@ def _check_observables(rt_scf):
     if rt_scf._scf.istype('GHF') | rt_scf._scf.istype('GKS'):
         rt_scf._observables_functions['dipole'][0] = _temp_get_dipole
 
-    if rt_scf.observables['nuclei']:
-        assert rt_scf.istype('RT_Ehrenfest')
-
-    if rt_scf.observables['nuclei']:
-        xyz_file = 'trajectory'
-
-        name_available = False
-        while not name_available:
-            if os.path.exists(f'{xyz_file}.xyz'):
-                # Just append the current time to the filename if trajectory.xyz already exists
-                xyz_file = xyz_file + str(datetime.now()).replace(' ','_').replace('-','_').replace(':','_').split('.')[0]
-            else:
-                name_available = True
-                break
-
-        rt_scf._xyz_fh = open(f'{xyz_file}.xyz', 'w') 
-        rt_scf._xyz_log = logger.Logger(rt_scf._xyz_fh, verbose=rt_scf.verbose)
-        rt_scf._log.note(f'Nuclei xyz output file: {xyz_file}.xyz')
-
-        # rt_scf.verbose > 2 will print coordinates
-        # rt_scf.verbose > 3 will print coordinates and velocities
-        # rt_scf.verbose > 4 will print coordinates and velocities and forces
-        # Checking here to assign to correct print function for the entire calculation,
-        # so we don't have to check every time step.
-
-        if rt_scf.verbose > 4:
-            rt_scf._update_xyz = rt_output._nuclei_coords_vels_forces
-        elif rt_scf.verbose > 3:
-            rt_scf._update_xyz = rt_output._nuclei_coords_vels
-        elif rt_scf.verbose > 2:
-            rt_scf._update_xyz = rt_output._nuclei_coords
-
     for key, print_value in rt_scf.observables.items():
         if not print_value:
             del rt_scf._observables_functions[key]
 
-    if rt_scf._observables_functions:
-        assert rt_scf.verbose >2
 
 
 def get_observables(rt_scf):
@@ -244,6 +208,18 @@ def get_hirshfeld_i_charge(rt_scf, den_ao):
             raise RuntimeError(f"Both Hirshfeld-I and MBIS failed: {str(e2)}")
     except Exception as e:
         raise RuntimeError(f"Hirshfeld-I calculation failed: {str(e)}")
+
+def get_mbis_charge(rt_scf, den_ao):
+    """
+    HORTON MBIS charges evaluated from PySCF densities.
+    """
+    from tides.horton_part import compute_mbis_from_pyscf, HortonUnavailableError
+    try:
+        res = compute_mbis_from_pyscf(rt_scf._scf, den_ao)
+    except HortonUnavailableError as e:
+        raise RuntimeError(str(e))
+    # Reuse existing printer for Hirshfeld charges
+    rt_scf._hirshfeld_charges = res['charges']
 
 def get_dipole(rt_scf, den_ao):
     rt_scf._dipole = rt_scf._scf.dip_moment(mol=rt_scf._scf.mol, dm=rt_scf.den_ao, unit='A.U.', verbose=1)
