@@ -6,7 +6,7 @@ from pyscf.lib import logger
 from tides.rt_prop import propagate
 from tides import rt_observables
 from tides import rt_output
-from tides.rt_utils_edit import restart_from_chkfile
+from tides.rt_utils import restart_from_chkfile
 import os
 
 
