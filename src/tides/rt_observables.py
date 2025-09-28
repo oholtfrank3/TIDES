@@ -75,7 +75,7 @@ def _check_observables(rt_scf):
     if (rt_scf.observables['hirsh_atom_mag'] | rt_scf.observables['hirsh_mag'] |
     rt_scf.observables['hirsh_atom_charge'] | rt_scf.observables['hirsh_charge']):
         rt_scf.hirshfeld = True
-        rt_scf.grids, rt_scf.at om_weights = get_weights(rt_scf._scf.mol)
+        rt_scf.grids, rt_scf.atom_weights = get_weights(rt_scf._scf.mol)
     else:
         rt_scf.hirshfeld = False
 
