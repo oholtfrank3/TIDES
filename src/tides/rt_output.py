@@ -115,3 +115,7 @@ def _print_fock_ao(rt_scf):
 def _print_plane_partition_charge(rt_scf):
     charge = rt_scf._plane_partition_charge
     rt_scf._log.note(f'Plane Partition Charges: Frag1={charge[0]:.6f}, Frag2={charge[1]:.6f}\n')
+
+def _print_plane_partition_charge_spatial(rt_scf):
+    charge = rt_scf._plane_partition_charge_spatial
+    rt_scf._log.note(f'Plane Partition Charges (Spatial Integration): Frag1={charge[0]:.6f}, Frag2={charge[1]:.6f}\n')

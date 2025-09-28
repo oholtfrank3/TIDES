@@ -289,3 +289,110 @@ class NOSCF(MOCAP):
 		else:
 			noscf_coeff = np.array([rt_scf.rotate_coeff_to_orth(noscf_coeff[spin]) for spin in range(noscf_coeff.shape[0])])
 		return super().calculate_potential_spin(rt_scf, coeff_matrix=noscf_coeff, mo_energy=noscf_energy)
+	
+
+class FOCK_DIAG(MOCAP):
+    def __init__(self, expconst, emin, prefac=1, maxval=100, cap_filename='fock_diag_fock_prop.txt'):
+        super().__init__(expconst, emin, prefac, maxval)
+        self.fock = None
+        self.cap_filename = cap_filename
+    def calculate_potential(self, rt_scf):
+        fock=rt_scf.fock_ao
+
+        if fock.ndim == 2:
+            fock_orth = rt_scf.rotate_fock_to_orth(fock)
+            mo_energy, fock_eigvecs = np.linalg.eigh(fock_orth)
+        else:
+            mo_energy = []
+            fock_eigvecs = []
+            for spin in range(fock.shape[0]):
+                fock_orth = rt_scf.rotate_fock_to_orth(fock[spin])
+                eigval, eigvec = np.linalg.eigh(fock_orth)
+                mo_energy.append(eigval)
+                fock_eigvecs.append(eigvec)
+
+        # Print damping_diagonal in FOCK basis only once per time step
+        if not hasattr(rt_scf, '_damping_printed') or rt_scf._damping_printed != rt_scf.current_time:
+            if isinstance(mo_energy, list):
+                for i, eig in enumerate(mo_energy):
+                    damping_diagonal = []
+                    for energy in eig:
+                        energy_corrected = energy - self.emin
+                        if energy_corrected > 0:
+                            damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
+                            if damping_term < (-1 * self.maxval):
+                                damping_term = -1 * self.maxval
+                            damping_diagonal.append(damping_term)
+                        else:
+                            damping_diagonal.append(0)
+                    damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
+                    print(f"Damping diagonal (FOCK basis, spin {i}): {damping_diagonal}")
+            else:
+                damping_diagonal = []
+                for energy in mo_energy:
+                    energy_corrected = energy - self.emin
+                    if energy_corrected > 0:
+                        damping_term = self.prefac * (1 - np.exp(self.expconst* energy_corrected))
+                        if damping_term < (-1 * self.maxval):
+                            damping_term = -1 * self.maxval
+                        damping_diagonal.append(damping_term)
+                    else:
+                        damping_diagonal.append(0)
+                damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
+                print(f"Damping diagonal (FOCK basis): {damping_diagonal}")
+            rt_scf._damping_printed = rt_scf.current_time
+
+        cap_matrix = super().calculate_potential_spin(rt_scf, coeff_matrix=fock_eigvecs, mo_energy=mo_energy)
+        return cap_matrix
+
+
+
+class DIMER_DIAG(MOCAP):
+    def __init__(self, expconst, emin, dimer, prefac=1, maxval=100, cap_filename='dimer_diag_fock_prop.txt'):
+        super().__init__(expconst, emin, prefac, maxval)
+        self.dimer = dimer
+        self.cap_filename = cap_filename
+
+    def calculate_potential(self, rt_scf):
+        # Ehrenfest compatibility: update energies and coefficients if needed
+        if rt_scf.istype('RT_Ehrenfest'):
+            mo_coeff = rt_scf.mo_coeff_print
+            scf_energy = rt_scf.mo_energy_print
+        else:
+            mo_coeff = self.dimer.mo_coeff
+            scf_energy = self.dimer.mo_energy
+
+        # Print dimer orbital energies
+        if isinstance(scf_energy, list):
+            for i, eig in enumerate(scf_energy):
+                print(f"Dimer orbital energies (spin {i}): {eig}")
+        else:
+            print(f"Dimer orbital energies: {scf_energy}")
+
+        if mo_coeff.ndim == 2:
+            dimer_coeff = rt_scf.rotate_coeff_to_orth(mo_coeff)
+        else:
+            dimer_coeff = np.array([rt_scf.rotate_coeff_to_orth(mo_coeff[spin]) for spin in range(mo_coeff.shape[0])])
+
+        cap_matrix = super().calculate_potential_spin(rt_scf, coeff_matrix=dimer_coeff, mo_energy=scf_energy)
+
+        if not hasattr(rt_scf, '_cap_printed') or rt_scf._cap_printed != rt_scf.current_time:
+            fock = rt_scf.fock_ao
+            if fock.ndim == 2:
+                fock_orth = rt_scf.rotate_fock_to_orth(fock)
+                _, fock_coeff = np.linalg.eigh(fock_orth)
+                cap_fock = np.dot(np.conj(fock_coeff.T), np.dot(cap_matrix, fock_coeff))
+            else:
+                cap_fock = []
+                for spin in range(fock.shape[0]):
+                    fock_orth = rt_scf.rotate_fock_to_orth(fock[spin])
+                    _, fock_coeff = np.linalg.eigh(fock_orth)
+                    cap_fock.append(np.dot(np.conj(fock_coeff.T), np.dot(cap_matrix[spin], fock_coeff)))
+                cap_fock = np.array(cap_fock)
+            with open(self.cap_filename, 'a') as f:
+                f.write(f"Time: {getattr(rt_scf, 'current_time', 'unknown')}\n")
+                f.write(np.array2string(cap_fock, precision=6, separator=', '))
+                f.write("\n\n")
+            rt_scf._cap_printed = rt_scf.current_time
+
+        return cap_matrix

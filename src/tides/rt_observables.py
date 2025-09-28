@@ -1,8 +1,8 @@
 import numpy as np
 from tides import rt_output
-from tides.basis_utils_edit import _mask_fragment_basis
+from tides.basis_utils import _mask_fragment_basis
 from tides.hirshfeld import hirshfeld_partition, get_weights
-from tides.rt_utils_edit import _update_mo_coeff_print
+from tides.rt_utils import _update_mo_coeff_print
 from pyscf import lib
 from pyscf.lib import logger
 from pyscf.tools import cubegen
@@ -26,6 +26,7 @@ def _init_observables(rt_scf):
         'hirsh_atom_charge'    : False,
         'hirshi_atom_charge'   : False, #HORTON Hirshfeld-I
         'plane_partition_charge': False, # Plane partitioning charge
+        'plane_partition_charge_spatial': False, # Plane partitioning charge using spatial integration
         'mag'                  : False,
         'hirsh_mag'            : False,
         'hirsh_atom_mag'       : False,
@@ -48,8 +49,8 @@ def _init_observables(rt_scf):
         'hirsh_charge'         : [get_hirshfeld_charge, rt_output._print_hirshfeld_charge],
         'hirsh_atom_charge'    : [get_hirshfeld_charge, rt_output._print_hirshfeld_charge],
         'hirshi_atom_charge'   : [get_hirshfeld_i_charge, rt_output._print_hirshfeld_charge],
-        'mbis_atom_charge'     : [get_mbis_charge, rt_output._print_hirshfeld_charge],
         'plane_partition_charge': [get_plane_partition_charge, rt_output._print_plane_partition_charge],
+        'plane_partition_charge_spatial': [get_plane_partition_charge_spatial, rt_output._print_plane_partition_charge_spatial],
         'mag'                  : [get_mag, rt_output._print_mag],
         'hirsh_mag'            : [get_hirshfeld_mag, rt_output._print_hirshfeld_mag],
         'hirsh_atom_mag'       : [get_hirshfeld_mag, rt_output._print_hirshfeld_mag],
@@ -348,3 +349,39 @@ def get_plane_partition_charge(rt_scf, den_ao):
     charge_frag2 = np.sum(rho[:, frag2_mask])
 
     rt_scf._plane_partition_charge = [charge_frag1, charge_frag2]
+
+
+
+def get_plane_partition_charge_spatial(rt_scf, den_ao):
+    if not hasattr(rt_scf, 'grids'):
+        rt_scf.grids, _ = get_weights(rt_scf._scf.mol)
+    grids = rt_scf.grids
+    from pyscf.dft import numint
+    ni = numint.NumInt()
+
+    # Spin-summed total density
+    if rt_scf.nmat == 2:
+        rho_a = ni.get_rho(rt_scf._scf.mol, den_ao[0], grids)
+        rho_b = ni.get_rho(rt_scf._scf.mol, den_ao[1], grids)
+        rho_tot = rho_a + rho_b
+    else:
+        rho_tot = ni.get_rho(rt_scf._scf.mol, den_ao, grids)
+
+    # Plane via fragment COMs
+    frag1, frag2 = rt_scf.fragments[0], rt_scf.fragments[1]
+    coords_atoms = rt_scf._scf.mol.atom_coords()
+    com1 = coords_atoms[frag1.match_indices].mean(axis=0)
+    com2 = coords_atoms[frag2.match_indices].mean(axis=0)
+    plane_origin = 0.5 * (com1 + com2)
+    normal = com2 - com1
+    normal /= np.linalg.norm(normal)
+
+    rel = grids.coords - plane_origin
+    signed = rel @ normal
+    mask1 = signed < 0
+    mask2 = ~mask1
+
+    w = grids.weights
+    q1 = np.sum(rho_tot[mask1] * w[mask1])
+    q2 = np.sum(rho_tot[mask2] * w[mask2])
+    rt_scf._plane_partition_charge_spatial = [q1, q2]
