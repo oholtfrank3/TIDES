@@ -6,29 +6,31 @@ from tides.rt_prop import propagate
 from tides import rt_observables
 from tides.rt_utils import restart_from_chkfile
 
-class RT_CASSCF:
-    #casscf is a pyscf mcscf CASSCF object
+class RT_CAS_RAS:
+    #ras is a pyscf mcscf CASSCF/CASCI object
     #h1e is 1-electron Hamiltonian in AO basis. Ex: mol.intor('int1e_kin')+mol.intor('int1e_nuc')
     #h2e is 2-electron Hamiltonian in AO basis. Ex: mol.intor('int2e')
     #mo_coeff_canon is the transformation matrix from AO to MO
         
-    def __init__(self, casscf, timestep, max_time, h1e, h2e, filename=None, prop=None, frequency=1, mo_coeff_canon=None, chkfile=None, verbose=3):
+    def __init__(self, ras, timestep, max_time, h1e, h2e, filename=None, prop=None, frequency=1, mo_coeff_canon=None, chkfile=None, verbose=3):
         
         self.timestep = timestep
         self.frequency = frequency
         self.maxtime = max_time
-        self._casscf = casscf
+        self._scf = ras
         # Will discuss how to assign occ for get_spin_square
         self._h1e_AO = h1e
         self._h2e_AO = h2e
+        
+        self._castype = ras.__class__.__name__
 
         self.verbose = verbose
         self._potential = []
         self.fragments = []
 
-        self.labels = [self._casscf.mol._atom[idx][0] for idx, _ in enumerate(self._casscf.mol._atom)]
+        self.labels = [self._scf.mol._atom[idx][0] for idx, _ in enumerate(self._scf.mol._atom)]
         if prop is None: prop = 'rk4'
-        if mo_coeff_canon in None: mo_coeff_canon = self._casscf.mo_coeff
+        if mo_coeff_canon in None: mo_coeff_canon = self._scf.mo_coeff
         self.prop = prop
         self.mo_coeff_canon = mo_coeff_canon
 
@@ -38,7 +40,7 @@ class RT_CASSCF:
             self._fh = open(filename, 'a') # Temporarily making _fh append to file
             self._log = logger.Logger(self._fh, verbose=self.verbose)
 
-        self.den_ao = mcscf.make_rdm1(self._casscf)
+        self.den_ao = mcscf.make_rdm1(self._scf)
         if len(np.shape(self.den_ao)) == 3:
             self.nmat = 2
         else:
@@ -50,7 +52,7 @@ class RT_CASSCF:
         if chkfile is not None:
             if os.path.exists(self.chkfile):
                 restart_from_chkfile(self)
-                self.den_ao = mcscf.make_rdm1(self._casscf)
+                self.den_ao = mcscf.make_rdm1(self._scf)
             else:
                 self.current_time = 0
         else:
@@ -69,7 +71,7 @@ class RT_CASSCF:
         self.current_time += self.timestep
 
     def get_h1e_mo(self):
-        if self._potential: self.apply_potential()
+        #if self._potential: self.apply_potential()
         return np.matmul(self.mo_coeff_canon.conj().T,np.matmul(self._h1e_AO,self.mo_coeff_canon))
     
     def get_h2e_mo(self):
@@ -83,7 +85,7 @@ class RT_CASSCF:
     
     def apply_potential(self):
         for v_ext in self._potential:
-            self._h1e_AO += v_ext.calculate_potential(self)
+            self._h1e_AO += v_ext.calculate_potential(self) #needs discussion
 
     def kernel(self, mo_coeff_print=None):
         try:
