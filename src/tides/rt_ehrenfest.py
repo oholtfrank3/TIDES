@@ -1,5 +1,6 @@
 import numpy as np
 from pyscf import gto, dft, scf, grad
+from tides.grad_addons import complex_veff_
 from tides import ehrenfest_force
 from tides.rt_scf import RT_SCF
 from tides.rt_nuclei import Nuc
@@ -84,6 +85,7 @@ class RT_Ehrenfest(RT_SCF):
 
     def _update_grad(self):
         self._grad = self._scf.apply(self._grad_func)
+        self._grad = complex_veff_(self._grad)
 
     def _get_omega(self):
         Rdot = self.nuc.vel

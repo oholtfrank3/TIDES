@@ -38,7 +38,6 @@ def _grad_lowdin(mol):
     etilde = 1. / (sqrt_e[:, numpy.newaxis] + sqrt_e[numpy.newaxis, :])
     return etilde, v, Vinv
 
-
 def _grad_elec_restricted(scf_grad, den_ao=None, etilde=None, v=None, Vinv=None):
     '''
     Electronic part of RHF/RKS gradients for complex densities
@@ -60,10 +59,7 @@ def _grad_elec_restricted(scf_grad, den_ao=None, etilde=None, v=None, Vinv=None)
 
     fock_ao = scf.get_fock(dm=den_ao)
 
-    if scf.istype('RKS'):
-        vhf = scf_grad.get_veff(mol, den_ao.real, hermi=1) + 1j*scf_grad.get_veff(mol, den_ao.imag, hermi=0)
-    else:
-        vhf = scf_grad.get_veff(mol, den_ao.real) + 1j*scf_grad.get_veff(mol, den_ao.imag)
+    vhf = scf_grad.get_veff(mol, den_ao)
 
     atmlst = range(mol.natm)
     aoslices = mol.aoslice_by_atom()
@@ -113,10 +109,7 @@ def _grad_elec_unrestricted(scf_grad, den_ao=None, etilde=None, v=None, Vinv=Non
 
     fock_ao = scf.get_fock(dm=den_ao)
 
-    if scf.istype('UKS'):
-        vhf = scf_grad.get_veff(mol, den_ao.real, hermi=1) + 1j*scf_grad.get_veff(mol, den_ao.imag, hermi=0)
-    else:
-        vhf = scf_grad.get_veff(mol, den_ao.real) + 1j*scf_grad.get_veff(mol, den_ao.imag)
+    vhf = scf_grad.get_veff(mol, den_ao)
 
     atmlst = range(mol.natm)
     aoslices = mol.aoslice_by_atom()
@@ -157,50 +150,6 @@ def _hcore_generator_generalized(mf_grad, mol):
         return _generalized_h1ao
     return _generalized_hcore_deriv
 
-def _get_veff_generalized(mf_grad, mol, dm):
-    mf = mf_grad.base
-    nao = mol.nao
-    Paa = dm[:nao,:nao]
-    Pbb = dm[nao:,nao:]
-    Pab = dm[:nao,nao:]
-    Pba = dm[nao:,:nao]
-    veff = numpy.zeros((3, 2 * nao, 2 * nao), dtype=numpy.float64)
-    if mf.istype('GKS'):
-        umf = dft.uks.UKS(mol)
-        umf.xc = mf.xc
-        if hasattr(mf._numint, "omega"):
-            umf._numint.omega = mf._numint.omega
-        if hasattr(mf._numint, "alpha"):
-            umf._numint.alpha = mf._numint.alpha
-        if hasattr(mf._numint, "beta"):
-            umf._numint.beta = mf._numint.beta
-        umf_grad = umf.apply(grad.UKS)
-        umf_veff = umf_grad.get_veff(mol, [Paa,Pbb], hermi=0)
-        ni = umf_grad.base._numint
-        if ni.libxc.is_hybrid_xc(umf.xc):
-            omega, alpha, hyb = ni.rsh_and_hybrid_coeff(umf.xc, spin=mol.spin)
-            vkab = umf_grad.get_k(mol, Pab) * hyb
-            vkba = umf_grad.get_k(mol, Pba) * hyb
-            if omega != 0:
-                vkab += umf_grad.get_k(mol, Pab, omega=omega) * (alpha - hyb)
-                vkba += umf_grad.get_k(mol, Pba, omega=omega) * (alpha - hyb)
-            veff[:,:nao,nao:] = -vkab
-            veff[:,nao:,:nao] = -vkba
-        veff[:,:nao,:nao] = umf_veff[0]
-        veff[:,nao:,nao:] = umf_veff[1]
-    elif mf.istype('GHF'):
-        umf = scf.uhf.UHF(mol)
-        umf_grad = umf.apply(grad.UHF)
-        umf_veff = umf_grad.get_veff(mol, [Paa,Pbb])
-        vkab = umf_grad.get_k(mol, Pab)
-        vkba = umf_grad.get_k(mol, Pba)
-        veff[:,:nao,nao:] = -vkab
-        veff[:,nao:,:nao] = -vkba
-        veff[:,:nao,:nao] = umf_veff[0]
-        veff[:,nao:,nao:] = umf_veff[1]
-
-    return veff
-
 def _grad_elec_generalized(scf_grad, den_ao=None, etilde=None, v=None, Vinv=None):
     '''
     Electronic part of GHF/GKS gradients for complex densities
@@ -223,7 +172,7 @@ def _grad_elec_generalized(scf_grad, den_ao=None, etilde=None, v=None, Vinv=None
 
     fock_ao = scf.get_fock(dm=den_ao)
 
-    vhf = _get_veff_generalized(scf_grad, mol, den_ao.real) + 1j*_get_veff_generalized(scf_grad, mol, den_ao.imag)
+    vhf = scf_grad.get_veff(mol, den_ao)
 
     atmlst = range(mol.natm)
     aoslices = mol.aoslice_by_atom()

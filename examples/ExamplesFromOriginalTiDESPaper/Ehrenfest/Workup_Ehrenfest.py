@@ -23,7 +23,8 @@ mpl.rcParams['legend.edgecolor'] = 'k'
 
 
 def get_results(filename):
-    xyz = XYZReader(filename, dt=50)
+    xyz = XYZReader(filename, dt=2)
+    #xyz = XYZReader(filename, dt=50)
     xyz.units['time'] = 'au'
 
     time = []
