@@ -29,7 +29,7 @@ def propagate(rt_scf, mo_coeff_print):
                 update_chkfile(rt_scf)
 
         rt_scf._integrate_function(rt_scf)
-        if rt_scf.istype('RT_Ehrenfest') and np.mod(int(rt_scf.current_time / rt_scf.timestep - 1), rt_scf.N_step * rt_scf.Ne_step) == rt_scf.N_step * rt_scf.Ne_step -1:
+        if rt_scf.istype('RT_Ehrenfest') and np.mod(round(rt_scf.current_time / rt_scf.timestep - 1), rt_scf.N_step * rt_scf.Ne_step) == rt_scf.N_step * rt_scf.Ne_step -1:
             rt_scf.update_force()
 
     rt_observables.get_observables(rt_scf)  # Collect observables at final time

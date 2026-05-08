@@ -12,7 +12,6 @@ cd $SLURM_SUBMIT_DIR
 
 eval "$(/storage/home/hcoda1/8/vsuarez6/r-jkretchmer3-0/MiniConda/bin/conda shell.bash hook)"
 export PYTHONPATH=/storage/home/hcoda1/8/vsuarez6/r-jkretchmer3-0/repos/TIDES/src:$PYTHONPATH
-export PYTHONPATH=/storage/home/hcoda1/8/vsuarez6/r-jkretchmer3-0/repos/pyscf:$PYTHONPATH
-conda activate pyscf_dev
+conda activate tides
 
 python cl2.py > cl2.out

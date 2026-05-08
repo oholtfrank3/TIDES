@@ -119,3 +119,27 @@ def Cl2_Energy_Conservation():
 Cl2_Dissociation()
 
 Cl2_Energy_Conservation()
+
+def Cl2_small_dt():
+
+    result = parse_output('Energy_Conservation/Small_dt/cl2.out')
+
+    time, energy = result['time'], result['energy']
+
+    fig, axs = plt.subplots(1,1, figsize=(3.36, 2.52), dpi=600, sharex=True)
+    axs.grid(True)
+    axs.tick_params(labelsize=8, which='both',direction='in', top=True, right=True)
+    axs.plot(time / 41.34, (energy - energy[0]) * 627.51, linewidth=1.5, c='k', label=r'$N_n$ = 1; $N_f$ = 1')
+
+    axs.xaxis.set_major_locator(MultipleLocator(40))
+    axs.yaxis.set_major_locator(MultipleLocator(0.002))
+    axs.set_title('5 times smaller timestep dt=0.1 a.u.')
+    axs.set_xlabel('Time (fs)', fontsize=12)
+    axs.set_ylabel('Energy (kcal/mol)', fontsize=12)
+    axs.set_xlim([0,120])
+    axs.set_ylim([-0.0049,0.0099])
+    axs.legend(fontsize=8, frameon=False)
+
+    plt.savefig('Cl2_small_dt', bbox_inches='tight')
+
+Cl2_small_dt()
