@@ -147,25 +147,63 @@ class FOCK_NOSCF(MOCAP):
 
 
 class FOCK_STATIC(MOCAP):
-	def __init__(self, expconst, emin, rt_scf, prefac=1, maxval=100):
-		super().__init__(expconst, emin, prefac, maxval)
-		# Store the initial Fock matrix and orthogonalization
-		fock = rt_scf._scf.get_fock(dm=rt_scf.den_ao).astype(np.complex128)
-		if fock.ndim == 2:
-			self.fock_orth = rt_scf.rotate_fock_to_orth(fock)
-			self.mo_energy, self.fock_eigvecs = np.linalg.eigh(self.fock_orth)
-		else:
-			self.mo_energy = []
-			self.fock_eigvecs = []
-			for spin in range(fock.shape[0]):
-				fock_orth = rt_scf.rotate_fock_to_orth(fock[spin])
-				eigval, eigvec = np.linalg.eigh(fock_orth)
-				self.mo_energy.append(eigval)
-				self.fock_eigvecs.append(eigvec)
+    def __init__(self, expconst, emin, rt_scf, prefac=1, maxval=100):
+        super().__init__(expconst, emin, prefac, maxval)
+        # Store the initial Fock matrix and orthogonalization
+        fock = rt_scf._scf.get_fock(dm=rt_scf.den_ao).astype(np.complex128)
+        if fock.ndim == 2:
+            self.fock_orth = rt_scf.rotate_fock_to_orth(fock)
+            self.mo_energy, self.fock_eigvecs = np.linalg.eigh(self.fock_orth)
+        else:
+            self.mo_energy = []
+            self.fock_eigvecs = []
+            for spin in range(fock.shape[0]):
+                fock_orth = rt_scf.rotate_fock_to_orth(fock[spin])
+                eigval, eigvec = np.linalg.eigh(fock_orth)
+                self.mo_energy.append(eigval)
+                self.fock_eigvecs.append(eigvec)
+        
+        # Calculate and store the static damping diagonal once
+        self.damping_diagonal_static = []
+        if isinstance(self.mo_energy, list):
+            for eig in self.mo_energy:
+                damping_diagonal = []
+                for energy in eig:
+                    energy_corrected = energy - self.emin
+                    if energy_corrected > 0:
+                        damping_term = self.prefac * (1 - np.exp(self.expconst * energy_corrected))
+                        if damping_term < (-1 * self.maxval):
+                            damping_term = -1 * self.maxval
+                        damping_diagonal.append(damping_term)
+                    else:
+                        damping_diagonal.append(0)
+                self.damping_diagonal_static.append(np.array(damping_diagonal).astype(np.complex128))
+        else:
+            damping_diagonal = []
+            for energy in self.mo_energy:
+                energy_corrected = energy - self.emin
+                if energy_corrected > 0:
+                    damping_term = self.prefac * (1 - np.exp(self.expconst * energy_corrected))
+                    if damping_term < (-1 * self.maxval):
+                        damping_term = -1 * self.maxval
+                    damping_diagonal.append(damping_term)
+                else:
+                    damping_diagonal.append(0)
+            self.damping_diagonal_static = np.array(damping_diagonal).astype(np.complex128)
 
-	def calculate_potential(self, rt_scf):
-		# Always use the stored initial Fock eigensystem
-		return super().calculate_potential_spin(rt_scf, coeff_matrix=self.fock_eigvecs, mo_energy=self.mo_energy)
+
+    def calculate_potential(self, rt_scf):
+        # Print the stored static damping diagonal once per time step
+        if not hasattr(rt_scf, '_damping_printed') or rt_scf._damping_printed != rt_scf.current_time:
+            if isinstance(self.damping_diagonal_static, list):
+                for i, diag in enumerate(self.damping_diagonal_static):
+                    print(f"Damping diagonal (FOCK_STATIC, spin {i}): {diag}")
+            else:
+                print(f"Damping diagonal (FOCK_STATIC): {self.damping_diagonal_static}")
+            rt_scf._damping_printed = rt_scf.current_time
+
+        # Always use the stored initial Fock eigensystem to ensure time-independence
+        return super().calculate_potential_spin(rt_scf, coeff_matrix=self.fock_eigvecs, mo_energy=self.mo_energy)
 	
 #Choose the basis of the SCF orbitals
 class DIMER_NOSCF(MOCAP):
@@ -362,12 +400,39 @@ class DIMER_DIAG(MOCAP):
             mo_coeff = self.dimer.mo_coeff
             scf_energy = self.dimer.mo_energy
 
-        # Print dimer orbital energies
-        if isinstance(scf_energy, list):
-            for i, eig in enumerate(scf_energy):
-                print(f"Dimer orbital energies (spin {i}): {eig}")
-        else:
-            print(f"Dimer orbital energies: {scf_energy}")
+        # Print damping diagonal from dimer energies only once per time step
+        if not hasattr(rt_scf, '_damping_printed') or rt_scf._damping_printed != rt_scf.current_time:
+            if isinstance(scf_energy, list):
+                for i, eig in enumerate(scf_energy):
+                    damping_diagonal = []
+                    for energy in eig:
+                        energy_corrected = energy - self.emin
+                        if energy_corrected > 0:
+                            damping_term = self.prefac * (1 - np.exp(self.expconst * energy_corrected))
+                            if damping_term < (-1 * self.maxval):
+                                damping_term = -1 * self.maxval
+                            damping_diagonal.append(damping_term)
+                        else:
+                            damping_diagonal.append(0)
+                    damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
+                    print(f"Damping diagonal (DIMER basis, spin {i}): {damping_diagonal}")
+            else:
+                # Handle case where scf_energy is a numpy array
+                damping_diagonal = []
+                # Ensure scf_energy is 1D
+                energies = np.atleast_1d(scf_energy).flatten()
+                for energy in energies:
+                    energy_corrected = energy - self.emin
+                    if energy_corrected > 0:
+                        damping_term = self.prefac * (1 - np.exp(self.expconst * energy_corrected))
+                        if damping_term < (-1 * self.maxval):
+                            damping_term = -1 * self.maxval
+                        damping_diagonal.append(damping_term)
+                    else:
+                        damping_diagonal.append(0)
+                damping_diagonal = np.array(damping_diagonal).astype(np.complex128)
+                print(f"Damping diagonal (DIMER basis): {damping_diagonal}")
+            rt_scf._damping_printed = rt_scf.current_time
 
         if mo_coeff.ndim == 2:
             dimer_coeff = rt_scf.rotate_coeff_to_orth(mo_coeff)

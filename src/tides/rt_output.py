@@ -87,7 +87,9 @@ def _print_nuclei(rt_scf):
 
 def _nuclei_coords(rt_scf, nuclei):
     for atom in zip(nuclei[0], nuclei[1]):
-        rt_scf._xyz_log.note(f'{atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
+        coords_str = "\t".join([f"{x:.11f}" for x in atom[1]])
+        rt_scf._xyz_log.note(f'{atom[0]} \t {coords_str}')
+        #rt_scf._xyz_log.note(f'{atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))}')
 
 def _nuclei_coords_vels(rt_scf, nuclei):
     for atom in zip(nuclei[0], nuclei[1], nuclei[2]):
