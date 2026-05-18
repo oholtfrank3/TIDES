@@ -98,11 +98,16 @@ def _nuclei_coords(rt_scf, nuclei):
 
 def _nuclei_coords_vels(rt_scf, nuclei):
     for atom in zip(nuclei[0], nuclei[1], nuclei[2]):
-        rt_scf._xyz_log.note(f'{atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[2]))}')
+        coords_str = "\t".join([f"{x:.11f}" for x in atom[1]])
+        vels_str   = "\t".join([f"{x:.11f}" for x in atom[2]])
+        rt_scf._xyz_log.note(f'{atom[0]} \t {coords_str} \t {vels_str}')
 
 def _nuclei_coords_vels_forces(rt_scf, nuclei):
     for atom in zip(nuclei[0], nuclei[1], nuclei[2], nuclei[3]):
-        rt_scf._xyz_log.note(f'{atom[0]} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[1]))} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[2]))} \t {"\t".join(map(lambda x: f"{x:.11f}",atom[3]))}')
+        coords_str  = "\t".join([f"{x:.11f}" for x in atom[1]])
+        vels_str    = "\t".join([f"{x:.11f}" for x in atom[2]])
+        forces_str  = "\t".join([f"{x:.11f}" for x in atom[3]])
+        rt_scf._xyz_log.note(f'{atom[0]} \t {coords_str} \t {vels_str} \t {forces_str}')
 
 def _print_spin_square(rt_scf):
     s2 = rt_scf._s2
