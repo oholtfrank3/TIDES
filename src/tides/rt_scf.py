@@ -34,7 +34,7 @@ class RT_SCF:
         self.prop = prop
 
         self.orth = orth
-        self.transform = inv(self.orth.T) # i made a change here to cache the transform to, so we dont have to recalculate it every time
+        self.orth_inv = inv(self.orth)  # cached inverse for rotate_coeff_to_orth
 
         if filename is None:
             self._log = logger.Logger(verbose=self.verbose)
@@ -81,7 +81,7 @@ class RT_SCF:
         return np.matmul(self.orth.conj().T, np.matmul(self.fock_ao, self.orth))
 
     def rotate_coeff_to_orth(self, coeff_ao):
-        return np.matmul(inv(self.orth), coeff_ao)
+        return np.matmul(self.orth_inv, coeff_ao)
 
     def rotate_fock_to_orth(self, fock_ao):
         return np.matmul(self.orth.T, np.matmul(fock_ao, self.orth))

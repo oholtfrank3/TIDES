@@ -1,9 +1,18 @@
 import numpy as np
-from scipy.linalg import expm
 
 '''
 Real-time Integrator Functions
 '''
+
+def _unitary_propagator(fock_orth, dt):
+    '''
+    Compute exp(-i*dt*F) for Hermitian F via eigendecomposition.
+    Handles both 2D (N,N) and stacked 3D (nmat,N,N) inputs.
+    Faster than scipy.linalg.expm for Hermitian matrices.
+    '''
+    eigenvalues, eigenvectors = np.linalg.eigh(fock_orth)
+    phase = np.exp(-1j * dt * eigenvalues)
+    return (eigenvectors * phase[..., np.newaxis, :]) @ eigenvectors.conj().swapaxes(-2, -1)
 
 def magnus_step(rt_scf):
     '''
@@ -16,7 +25,7 @@ def magnus_step(rt_scf):
     # Update time, mol is updated here if rt_scf is Ehrenfest obj
     rt_scf.update_time()
 
-    u = expm(-1j*2*rt_scf.timestep*fock_orth)
+    u = _unitary_propagator(fock_orth, 2*rt_scf.timestep)
 
     mo_coeff_orth_new = np.matmul(u, rt_scf.mo_coeff_orth_old)
 
@@ -43,7 +52,7 @@ def magnus_interpol(rt_scf):
     rt_scf.update_time()
 
     for iteration in range(rt_scf.magnus_maxiter):
-        u = expm(-1j*rt_scf.timestep*fock_orth_p12dt)
+        u = _unitary_propagator(fock_orth_p12dt, rt_scf.timestep)
 
         mo_coeff_orth_pdt = np.matmul(u, mo_coeff_orth)
         mo_coeff_ao_pdt = rt_scf.rotate_coeff_to_ao(mo_coeff_orth_pdt)
