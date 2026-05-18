@@ -1,18 +1,22 @@
 import numpy as np
+from scipy.linalg import expm
 
 '''
 Real-time Integrator Functions
 '''
 
-def _unitary_propagator(fock_orth, dt):
+def _unitary_propagator(fock_orth, dt, hermitian=True):
     '''
-    Compute exp(-i*dt*F) for Hermitian F via eigendecomposition.
-    Handles both 2D (N,N) and stacked 3D (nmat,N,N) inputs.
-    Faster than scipy.linalg.expm for Hermitian matrices.
+    Compute exp(-i*dt*F). Handles both 2D (N,N) and stacked 3D (nmat,N,N) inputs.
+    If hermitian=True (no CAP), uses eigh which is 2-5x faster than Pade expm.
+    If hermitian=False (CAP present), falls back to scipy expm.
     '''
-    eigenvalues, eigenvectors = np.linalg.eigh(fock_orth)
-    phase = np.exp(-1j * dt * eigenvalues)
-    return (eigenvectors * phase[..., np.newaxis, :]) @ eigenvectors.conj().swapaxes(-2, -1)
+    if hermitian:
+        eigenvalues, eigenvectors = np.linalg.eigh(fock_orth)
+        phase = np.exp(-1j * dt * eigenvalues)
+        return (eigenvectors * phase[..., np.newaxis, :]) @ eigenvectors.conj().swapaxes(-2, -1)
+    else:
+        return expm(-1j * dt * fock_orth)
 
 def magnus_step(rt_scf):
     '''
@@ -25,7 +29,8 @@ def magnus_step(rt_scf):
     # Update time, mol is updated here if rt_scf is Ehrenfest obj
     rt_scf.update_time()
 
-    u = _unitary_propagator(fock_orth, 2*rt_scf.timestep)
+    hermitian = len(rt_scf._potential) == 0
+    u = _unitary_propagator(fock_orth, 2*rt_scf.timestep, hermitian=hermitian)
 
     mo_coeff_orth_new = np.matmul(u, rt_scf.mo_coeff_orth_old)
 
@@ -51,8 +56,9 @@ def magnus_interpol(rt_scf):
     # Update time, mol is updated here if rt_scf is an Ehrenfest obj
     rt_scf.update_time()
 
+    hermitian = len(rt_scf._potential) == 0
     for iteration in range(rt_scf.magnus_maxiter):
-        u = _unitary_propagator(fock_orth_p12dt, rt_scf.timestep)
+        u = _unitary_propagator(fock_orth_p12dt, rt_scf.timestep, hermitian=hermitian)
 
         mo_coeff_orth_pdt = np.matmul(u, mo_coeff_orth)
         mo_coeff_ao_pdt = rt_scf.rotate_coeff_to_ao(mo_coeff_orth_pdt)
