@@ -39,7 +39,8 @@ class RT_SCF:
         if filename is None:
             self._log = logger.Logger(verbose=self.verbose)
         else:
-            self._fh = open(filename, 'w')
+            #self._fh = open(filename, 'w')
+            self._fh = open(filename, 'a') # Temporarily making _fh append to file
             self._log = logger.Logger(self._fh, verbose=self.verbose)
 
         self.den_ao = self._scf.make_rdm1(mo_occ=self.occ)
@@ -50,13 +51,15 @@ class RT_SCF:
 
         # Restart from chkfile, or create a chkfile
         # If restarting from chkfile, self.den_ao will be rewritten
-        self.chkfile = chkfile
         if chkfile is not None:
-            if os.path.exists(self.chkfile):
-                restart_from_chkfile(self)
-                self.den_ao = self._scf.make_rdm1(mo_occ=self.occ)
-            else:
-                self.current_time = 0
+            self.chkfile = chkfile
+        else:
+            print('Warning: chkfile not set, defaulting to tides.chk')
+            #self._log.note('Warning: chkfile not set, defaulting to tides.chk')
+            self.chkfile = 'tides.chk'
+        if os.path.exists(self.chkfile):
+            restart_from_chkfile(self)
+            self.den_ao = self._scf.make_rdm1(mo_occ=self.occ)
         else:
             self.current_time = 0
         self._t0 = self.current_time
@@ -100,7 +103,8 @@ class RT_SCF:
         except Exception:
             raise
         finally:
-            if np.isclose(self.current_time, self.max_time + self._t0):
+            #if np.isclose(self.current_time, self.max_time + self._t0):
+            if np.isclose(self.current_time, self.max_time): # So calculation terminates once max_time is reached after restarts
                 self._log.note('Done')
             else:
                 self._log.note('Propagation Stopped Early')

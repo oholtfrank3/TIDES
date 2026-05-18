@@ -24,6 +24,8 @@ def parse_output(filename):
     mag = []
     hirsh_atom_mag = []
     mo_occ = []
+    mo_occ_alpha = []
+    mo_occ_beta = []
     frag_charge = []
     alpha_energies = []
     beta_energies = []
@@ -47,6 +49,10 @@ def parse_output(filename):
             kinetic_energy.append(get_kinetic_energy(line))
         if 'Molecular Orbital Occupations' in line:
             mo_occ.append(get_mo_occ(line))
+        if 'Molecular Orbital Alpha Occupations' in line:
+            mo_occ_alpha.append(get_mo_occ(line))
+        if 'Molecular Orbital Beta Occupations' in line:
+            mo_occ_beta.append(get_mo_occ(line))
         if 'Total Electronic Charge' in line:
             mulliken_charge.append(get_charge(line))
         if 'Fragment' in line and 'Electronic Charge' in line:
@@ -87,6 +93,8 @@ def parse_output(filename):
     mag = np.array(mag)
     hirsh_atom_mag = np.array(hirsh_atom_mag)
     mo_occ = np.array(mo_occ)
+    mo_occ_alpha = np.array(mo_occ_alpha)
+    mo_occ_beta = np.array(mo_occ_beta)
     frag_charge = np.array(frag_charge).reshape([len(time), int(np.size(frag_charge) / len(time))])
     alpha_energies = np.array(alpha_energies)
     beta_energies = np.array(beta_energies)
@@ -110,6 +118,8 @@ def parse_output(filename):
     'hirsh_mag': hirsh_atom_mag,
     'hirsh_atom_mag': hirsh_atom_mag,
     'mo_occ': mo_occ,
+    'mo_occ_alpha': mo_occ_alpha,
+    'mo_occ_beta': mo_occ_beta,
     'frag_charge': frag_charge,
     'plane_partition_charge': np.array(plane_partition_charge),
     'plane_partition_charge_spatial': np.array(plane_partition_charge_spatial),
@@ -161,7 +171,7 @@ def get_atom_mag(lines):
     return mag
 
 def get_mo_occ(line):
-    return np.array(line.split('Molecular Orbital Occupations: ')[1].split()).astype(np.float64)
+    return np.array(line.split('Occupations: ')[1].split()).astype(np.float64)
 
 def get_mo_energy(line):
     return np.array(line.split('a):')[1].split()).astype(np.float64)
