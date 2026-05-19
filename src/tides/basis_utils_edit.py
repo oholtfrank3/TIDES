@@ -55,25 +55,40 @@ def _mask_fragment_basis(scf, match_indices):
 def noscfbasis(scf, *fragments, reorder=True, orth=None):
     total_dim = np.shape(scf.mo_coeff)
     noscf_orbitals = np.zeros(total_dim)
-
+    noscf_energy = []
     
     for frag in fragments:
         match_indices = _match_fragment_atom(scf, frag)
         mask = _mask_fragment_basis(scf, match_indices)
         noscf_orbitals[mask] = frag.mo_coeff
-    
+        if hasattr(frag, "mo_energy"):
+            noscf_energy.append(frag.mo_energy)
+
     if reorder:
         # Reorder so that all occupied orbitals appear before virtual orbitals
         # This may give the wrong order if you are projecting onto bizarre fragments, since the occupation of each fragment is used to reorder
         noscf_orbitals = _reorder_noscf(noscf_orbitals, scf, *fragments)
+        energy = np.concatenate([frag.get_occ() for frag in fragments], axis=1)
+        if energy.ndim == 2:
+            nind = _occ_sort(energy[0])
+        else:
+            nind = _occ_sort(energy)
+        if len(np.shape(scf.mo_coeff)) == 3:
+            nind_a = _occ_sort(np.concatenate([frag.get_occ()[0] for frag in fragments]))
+            nind_b = _occ_sort(np.concatenate([frag.get_occ()[1] for frag in fragments]))
+            energy_a = np.concatenate([np.array(e)[0] for e in noscf_energy])
+            energy_b = np.concatenate([np.array(e)[1] for e in noscf_energy])
+            noscf_energy = np.stack(((energy_a)[list(nind_a)], np.array(energy_b)[list(nind_b)]))
+        else:
+            noscf_energy = np.concatenate([np.array(e) for e in noscf_energy])[nind]
     
     # Orthogonalize noscf orbitals (do this in orthogonal AO basis)
     if orth is None:
         orth = addons.canonical_orth_(scf.get_ovlp())
     noscf_orth = np.matmul(inv(orth), noscf_orbitals).astype(np.complex128)
     noscf_orth, _ = np.linalg.qr(noscf_orth, 'complete')
-    noscf_orth = np.matmul(orth, noscf_orth)
-    return noscf_orth
+    noscf_orb = np.matmul(orth, noscf_orth)
+    return noscf_orb, noscf_energy
 
 def _reorder_noscf(noscf_orbitals, scf, *fragments):
     if len(np.shape(scf.mo_coeff)) == 3:
