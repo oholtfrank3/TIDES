@@ -6,12 +6,14 @@ from pyscf.scf import addons
 from pyscf.lib import logger
 from tides.rt_casprop import propagate
 from tides import rt_observables
+from tides import fci_mod as fci_mod
 from tides.rt_utils import restart_from_chkfile
 import math
 
 class RT_CAS_RAS:
     '''
-    ras: pyscf mcscf CASSCF/CASCI object, solved for its initial state
+    Please note this is currently only tested for TDCASCI, not TDCASSCF
+    ras: pyscf mcscf CASSCF/CASCI object, solved for its t=0 state
     timestep: as defined for the given propogation method
     max_time: total time to run the dynamics for
     outputName: name of output file used to check for numerical stability
@@ -19,16 +21,17 @@ class RT_CAS_RAS:
     filename: I don't use this, left to keep consistent with rt_scf class
     h1e: 1 e Hamiltonian in AO basis at initial time
     h2e: 2 e Hamiltonian in AO basis at initial time
-    prop: Propogation method in rt_integrators to use. Currently only rk4cr works.
+    prop: Propogation method in rt_integrators to use.
+        rk4cr: Fourth-order runge-kutta integrator
+        vv: Second-order symplectic split operator integrator. Only implemented for CASCI, not CASSCF
     frequency: How many time steps you want between prints to output files
     mo_to_ao: MO to AO transformation matrix (MO coefficient matrix). Sort columns (core,active). Do not include columns for virtual orbitals.
     orth: Orthogonal AO coefficient matrix
     chkfile: I don't use this, left to keep consistent with rt_scf class
     verbose: I don't use this, left to keep consistent with rt_scf class
     ovlp: AO overlap matrix
-    vext: Function that takes time in AU as input and outputs time-dependent portion of 1 e Hamiltonian in AO basis. Two inputs, first one is current time, second one is ras object
     '''
-    def __init__(self, ras, timestep, max_time, outputName, corrDenName, filename=None, h1e=None, h2e=None, prop=None, frequency=1, mo_to_ao=None, orth=None, chkfile=None, verbose=3, ovlp=None, vext=None):
+    def __init__(self, ras, timestep, max_time, outputName, corrDenName, filename=None, h1e=None, h2e=None, prop=None, frequency=1, mo_to_ao=None, orth=None, chkfile=None, verbose=3, ovlp=None):
         
         self.timestep = timestep
         self.frequency = frequency
@@ -39,34 +42,52 @@ class RT_CAS_RAS:
         self.outName = outputName
         self.corName = corrDenName
         
+        # CASCI or CASSCF
         self._castype = ras.__class__.__name__
+
+        # Core + Active Orbital Space Size
         self.numP = self._scf.ncore + self._scf.ncas
+
+        # Number of spin up electrons
         self.neleca = self._scf.nelecas[0] + self._scf.ncore
+
+        # Number of spin down electrons
         self.nelecb = self._scf.nelecas[1] + self._scf.ncore
-        #self.fullNElecA = math.factorial(self.numP)/(math.factorial(self.neleca)*math.factorial(self._scf.ncas-self._scf.nelecas[0]))
-        #self.fullNElecA = math.factorial(self.numP)/(math.factorial(self.nelecb)*math.factorial(self._scf.ncas-self._scf.nelecas[1]))
 
         self.verbose = verbose
+
+        # The time-dependent portion of the Hamiltonian will be stored here as a function, if it exists
         self._potential = []
-        self.fragments = []
 
         self.labels = [self._scf.mol._atom[idx][0] for idx, _ in enumerate(self._scf.mol._atom)]
         if h1e is None: h1e=self._scf.get_hcore()
         if h2e is None: h2e=self._scf.mol.intor('int2e')
         if prop is None: prop = 'rk4cr'
+        if prop == 'vv':
+            self.pMinusHalf = 0
+            self.pDotH = 0
+            self.firstStep = True
         if mo_to_ao is None:
             mo_to_ao = self._scf.mo_coeff[:,:self.numP]
-            #print(mo_to_ao)
         if orth is None: orth = addons.canonical_orth_(self.ovlp)
-        if vext is not None: self._potential.append(vext)
-        self._h1e_AO_0 = h1e
-        self._h2e_AO_0 = h2e
-        self._h1e_AO = h1e
-        self._h2e_AO = h2e
+
+        # One and two electron Hamiltonians at t=0
+        self._h1e_AO_0 = np.copy(h1e)
+        self._h2e_AO_0 = np.copy(h2e)
+
+        # One and two electron Hamiltonians at the current time
+        self._h1e_AO = np.copy(h1e)
+        self._h2e_AO = np.copy(h2e)
+
+        # Number of atomic orbitals
         self.no = len(self._h1e_AO)
+
         self.prop = prop
-        self.mo_to_ao = mo_to_ao
+        self.mo_to_ao = np.copy(mo_to_ao)
+
+        # AO to MO transformation matrix
         self.ao_to_mo = self.get_ao_to_mo()
+
         self.orth = orth
 
         if filename is None:
@@ -75,7 +96,8 @@ class RT_CAS_RAS:
             self._fh = open(filename, 'a') # Temporarily making _fh append to file
             self._log = logger.Logger(self._fh, verbose=self.verbose)
 
-        self.den_ao = self._scf.make_rdm1()
+        self.den_ao = self.get_den_ao()
+
         if len(np.shape(self.den_ao)) == 3:
             self.nmat = 2
         else:
@@ -83,6 +105,7 @@ class RT_CAS_RAS:
 
         # Restart from chkfile, or create a chkfile
         # If restarting from chkfile, self.den_ao will be rewritten
+        # I do not use this functionality and have not tested it
         self.chkfile = chkfile
         if chkfile is not None:
             if os.path.exists(self.chkfile):
@@ -92,10 +115,12 @@ class RT_CAS_RAS:
                 self.current_time = 0
         else:
             self.current_time = 0
+
         self._t0 = self.current_time
 
-        rt_observables._init_observables(self) # Needs Discussion
+        rt_observables._init_observables(self)
 
+    # I don't use this, left to keep consistent with rt_scf class
     def istype(self, type_code):
         if isinstance(type_code, type):
             return isinstance(self, type_code)
@@ -103,88 +128,70 @@ class RT_CAS_RAS:
         return any(type_code == t.__name__ for t in self.__class__.__mro__)
     
     def update_time(self):
-        self.current_time += self.timestep
+        if self.prop == 'rk4cr' or self.prop == 'vv':
+            self.current_time += (self.timestep/2)
+        else:
+            self.current_time += self.timestep
 
     def get_ao_to_mo(self):
-        return np.matmul(inv(np.matmul(self.mo_to_ao.T,self.mo_to_ao)),self.mo_to_ao.T)
+        return self.mo_to_ao.conj().T
     
     def get_mo_to_ao(self):
-        return np.matmul(self.ao_to_mo.T,inv(np.matmul(self.ao_to_mo,self.ao_to_mo.T)))
+        return self.ao_to_mo.conj().T
 
     def get_h1e_mo(self):
         rawOut = np.matmul(self.mo_to_ao.conj().T,np.matmul(self._h1e_AO,self.mo_to_ao)).astype(np.complex128)
-        #return np.matmul(self.mo_to_ao.conj().T,np.matmul(self._h1e_AO,self.mo_to_ao)).astype(np.complex128)
-        #return (rawOut+rawOut.conj().T)/2
         return rawOut
 
+    # h1e in orthogonal AO basis is currently not used
     def get_h1e_orth(self):
-        #if self._potential: self.apply_potential(self.current_time)
-        #print(self._h1e_AO)
-        #print(self.orth)
+        if self._potential: self.apply_potential()
         return np.matmul(self.orth.conj().T,np.matmul(self._h1e_AO,self.orth)).astype(np.complex128)
-    
-    #def get_h2e_mo(self):
-    #    toReturn=ao2mo.incore.full(self._h2e_AO,self.mo_coeff_canon,compact=False)
-    #    return toReturn.reshape((self.numP,self.numP,self.numP,self.numP)).transpose(0,2,1,3)
 
     def get_h2e_mo(self):
         mat1 = np.einsum('ap,pqrs,qb',self.mo_to_ao.conj().T,self._h2e_AO,self.mo_to_ao)
         return np.einsum('cr,abrs,sd',self.mo_to_ao.conj().T,mat1,self.mo_to_ao).astype(np.complex128)
-        '''
-        if self.realAOs == False:
-            mat1 = np.einsum('pqrs,pa',self._h2e_AO,self.mo_coeff_canon)
-            mat2 = np.einsum('aqrs,qb',mat1,self.mo_coeff_canon)
-            mat3 = np.einsum('abrs,rc',mat2,self.mo_coeff_canon)
-            return np.einsum('abcs,sd',mat3,self.mo_coeff_canon)
-        else:
-            toReturn=ao2mo.incore.full(self._h2e_AO,self.mo_coeff_canon,compact=False)
-            return toReturn.reshape((self.numP,self.numP,self.numP,self.numP))
-        '''
     
+    # h1e in orthogonal AO basis is currently not used
     def get_h2e_orth(self):
         mat1 = np.einsum('ap,pqrs,qb',self.orth.conj().T,self._h2e_AO,self.orth)
         return np.einsum('cr,abrs,sd',self.orth.conj().T,mat1,self.orth).astype(np.complex128)
-        '''
-        if self.realAOs == False:
-            mat1 = np.einsum('pqrs,pa',self._h2e_AO,self.orth)
-            mat2 = np.einsum('aqrs,qb',mat1,self.orth)
-            mat3 = np.einsum('abrs,rc',mat2,self.orth)
-            return np.einsum('abcs,sd',mat3,self.orth)
-        else:
-            toReturn=ao2mo.incore.full(self._h2e_AO,self.orth,compact=False)
-            return toReturn.reshape((self.no,self.no,self.no,self.no))
-        '''
-        
-    def get_den_mo(self,ci=None):
-        if ci is None: ci = self._scf.ci
-        return self._scf.fcisolver.make_rdm12(ci,self._scf.ncas,self._scf.nelecas)
-    '''
-    def get_mo_to_orth(self):
-        return np.matmul(inv(self.orth),self.mo_to_ao)
     
-    def get_orth_to_mo(self):
-        return np.matmul(self.ao_to_mo,self.orth)
-    '''
-    def rotate_mo_to_ao(self,coeff_mo): # I don't use this, left to keep consistent with rt_scf class
+    # I don't use this, left to keep consistent with rt_scf class
+    def rotate_mo_to_ao(self,coeff_mo):
         return np.matmul(self.mo_coeff_canon,coeff_mo)
     
-    def rotate_ao_to_orth(self, coeff_ao): # I don't use this, left to keep consistent with rt_scf class
+    # I don't use this, left to keep consistent with rt_scf class
+    def rotate_ao_to_orth(self, coeff_ao):
         return np.matmul(inv(self.orth), coeff_ao)
     
+    # Returns density matrix in AO basis
+    def get_den_ao(self):
+        corr1RDMcas = fci_mod.get_corr1RDM(self._scf.ci, self._scf.ncas, self._scf.nelecas)
+        corr1RDMmo = np.zeros((self.numP,self.numP)).astype(np.complex128)
+        for a in range(self._scf.ncore):
+            corr1RDMmo[a][a] = 2
+        for a in range(self._scf.ncas):
+            for b in range(self._scf.ncas):
+                corr1RDMmo[a+self._scf.ncore][b+self._scf.ncore] = corr1RDMcas[a][b]
+        return(np.matmul(self.ao_to_mo.conj().T,np.matmul(corr1RDMmo,self.ao_to_mo)))
+    
+    # Expresses molecular orbital in OAO basis
     def mo_unitvec_to_orth(self,mo):
         return self.mo_to_orth[:][mo]
     
-    def add_potential(self, *args): # I don't use this, left to keep consistent with rt_scf class
+    # Adds some time-dependent term to the list of time-dependent Hamiltonian terms
+    def add_potential(self, *args):
         for v_ext in args:
             self._potential.append(v_ext)
-    
-    def apply_potential(self,t,h1,h2): # Modify 1 e Hamiltonian to reflect the given time t
-        for vext in self._potential:
-            td1e, td2e = vext(t,h1,h2)
-            self._h1e_AO = self._h1e_AO_0 + td1e
-            self._h2e_AO = self._h2e_AO_0 + td2e
 
-    def get_q_orth(self): # For get_x
+    # Updates h1e in AO basis to reflect Hamiltonian at the current time
+    def apply_potential(self):
+        for v_ext in self._potential:
+            self._h1e_AO = self._h1e_AO_0 + v_ext.calculate_potential(self)
+
+    # Gets Q operator in OAO basis as defined in Phys. Rev. A 89, 063416
+    def get_q_orth(self):
         toReturn = np.eye(self.no)
         for p in range(self.numP):
             #p_orth = self.mo_to_orth @ self.getMoVec(p)
@@ -192,14 +199,17 @@ class RT_CAS_RAS:
             toReturn = toReturn - np.matmul(p_orth,p_orth.conj().T)
         return toReturn
     
-    def get_w_orth(self,a,b): # For get_x
+    # Gets Wab operator in OAO basis as defined in Phys. Rev. A 88, 023402
+    # Note that this corresponds to p=a and q=b in eq 32
+    def get_w_orth(self,a,b):
         toReturn = np.zeros((self.numP,self.numP))
         for i in range(self.numP):
             for j in range(self.numP):
                 toReturn[i][j] = self._h2e_mo[i][j][a][b]
         return np.matmul(self.orth_to_mo.conj().T,np.matmul(toReturn,self.orth_to_mo))
     
-    def getQU(self,qn,un,dBarInv): # For get_x
+    # Acts Q operator (as defined in Phys. Rev. A 89, 063416) on the uth core molecular orbital
+    def getQU(self,qn,un,dBarInv):
         for k in range(self._scf.ncas):
             kMO = k+self._scf.ncore
             prefac = dBarInv[qn,kMO]
@@ -220,7 +230,8 @@ class RT_CAS_RAS:
             toReturn = toReturn + (prefac*toAdd)
         return toReturn
 
-    def get_x(self): # Get X-matrix for cas/ras-SCF. Acts as time evolution of MO coefficient matrix.
+    # Get X-matrix for cas/ras-SCF. Acts as time evolution of MO coefficient matrix. Equal to R-Matrix in Phys. Rev. A 88, 023402
+    def get_x(self):
         toReturn = np.zeros((self.numP,self.numP))
         if self._castype == 'CASCI':
             return toReturn
@@ -270,16 +281,17 @@ class RT_CAS_RAS:
                 for index in range(self.numP):
                     toReturn[index,qMO] = moCol[index,0]
             return toReturn
-        
+    
+    # Returns active space constant terms and 1e and 2e Hamiltonians
+    # Analogous to final result on page 12 of group's dmet/dmet_original_jctc notes (cannot find equation in J. Chem. Theory Comput. 2013, 9, 3, 1428–1432)
     def get_embH(self,x):
-        #Returns active space 1e and 2e Hamiltonians
         h1 = self._h1e_mo - x
         Econst = 0
         for e in range(self._scf.ncore):
             Econst = Econst + (2*h1[e,e])
             for f in range(self._scf.ncore):
                 Econst = Econst + (2*self._h2e_mo[e][e][f][f]) - self._h2e_mo[e][f][f][e]
-        h1Mat = np.zeros((self._scf.ncas,self. _scf.ncas),dtype=np.complex128)
+        h1Mat = np.zeros((self._scf.ncas,self. _scf.ncas))
         for a in range(self._scf.ncas):
             for b in range(self._scf.ncas):
                 aMO = a+self._scf.ncore
@@ -287,7 +299,7 @@ class RT_CAS_RAS:
                 h1Mat[a,b] = h1[aMO,bMO]
                 for e in range(self._scf.ncore):
                     h1Mat[a,b] = h1Mat[a,b] + (2*self._h2e_mo[bMO][aMO][e][e]) - self._h2e_mo[bMO][e][e][aMO]
-        h2Mat = np.zeros((self._scf.ncas,self. _scf.ncas,self._scf.ncas,self. _scf.ncas),dtype=np.complex128)
+        h2Mat = np.zeros((self._scf.ncas,self. _scf.ncas,self._scf.ncas,self. _scf.ncas))
         for a in range(self._scf.ncas):
             aMO = a+self._scf.ncore
             for b in range(self._scf.ncas):
@@ -297,11 +309,10 @@ class RT_CAS_RAS:
                     for d in range(self._scf.ncas):
                         dMO = d+self._scf.ncore
                         h2Mat[a][b][c][d] = self._h2e_mo[aMO][bMO][cMO][dMO]
-        #h1Mat = (h1Mat + h1Mat.conj().T)/2
-        #h2Mat = (h2Mat + h2Mat.conj().T)/2
         return Econst,h1Mat,h2Mat
 
-    def kernel(self, mo_coeff_print=None): # Begin time propogation. I don't use mo_coeff_print, left to keep consistent with rt_scf class
+    # Begin time propogation. I don't use mo_coeff_print, left to keep consistent with rt_scf class
+    def kernel(self, mo_coeff_print=None):
         try:
             propagate(self, mo_coeff_print)
         except Exception:
