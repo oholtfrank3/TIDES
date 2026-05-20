@@ -100,16 +100,15 @@ def wrap_gpu_mf(mf_gpu):
     # Mirror the gpu4pyscf object type (UKS / RKS).
     # Currently only UKS/UHF GPU workflows are tested; RKS is included for
     # completeness but the complex-DM branch below assumes spin-index 0 exists.
-    _gpu_module = type(mf_gpu).__module__  # e.g. 'gpu4pyscf.dft.uks'
-    if 'uks' in _gpu_module or 'uhf' in _gpu_module:
+    _mro_names = {c.__name__ for c in type(mf_gpu).__mro__}
+    if 'UKS' in _mro_names or 'UHF' in _mro_names:
         mf = cpu_dft.UKS(mf_gpu.mol).density_fit()
-    elif 'rks' in _gpu_module or 'rhf' in _gpu_module:
+    elif 'RKS' in _mro_names or 'RHF' in _mro_names:
         mf = cpu_dft.RKS(mf_gpu.mol).density_fit()
     else:
-        # Fallback — copy the class pattern from the GPU object if possible
         import warnings
         warnings.warn(
-            f"Unrecognised gpu4pyscf type '{_gpu_module}'. "
+            f"Unrecognised gpu4pyscf type (MRO: {sorted(_mro_names)}). "
             "Defaulting to UKS CPU wrapper; check results carefully."
         )
         mf = cpu_dft.UKS(mf_gpu.mol).density_fit()
