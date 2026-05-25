@@ -1,18 +1,19 @@
 import numpy as np
 import os
 from scipy.linalg import inv
-from pyscf import gto, mcscf, ao2mo
+from pyscf import mcscf
 from pyscf.scf import addons
 from pyscf.lib import logger
 from tides.rt_casprop import propagate
 from tides import rt_observables
 from tides import fci_mod as fci_mod
 from tides.rt_utils import restart_from_chkfile
-import math
 
 class RT_CAS_RAS:
     '''
-    Please note this is currently only tested for TDCASCI, not TDCASSCF
+    opt: Currently supports two options
+        opt='CASCI' for TDCASCI calculation
+        opt='CASSCF' for TDCASSCF calculation
     ras: pyscf mcscf CASSCF/CASCI object, solved for its t=0 state
     timestep: as defined for the given propogation method
     max_time: total time to run the dynamics for
@@ -31,8 +32,7 @@ class RT_CAS_RAS:
     verbose: I don't use this, left to keep consistent with rt_scf class
     ovlp: AO overlap matrix
     '''
-    def __init__(self, ras, timestep, max_time, outputName, corrDenName, filename=None, h1e=None, h2e=None, prop=None, frequency=1, mo_to_ao=None, orth=None, chkfile=None, verbose=3, ovlp=None):
-        
+    def __init__(self, opt,ras, timestep, max_time, outputName, corrDenName, filename=None, h1e=None, h2e=None, prop=None, frequency=1, mo_to_ao=None, orth=None, chkfile=None, verbose=3, ovlp=None):
         self.timestep = timestep
         self.frequency = frequency
         self.max_time = max_time
@@ -43,7 +43,7 @@ class RT_CAS_RAS:
         self.corName = corrDenName
         
         # CASCI or CASSCF
-        self._castype = ras.__class__.__name__
+        self._castype = opt
 
         # Core + Active Orbital Space Size
         self.numP = self._scf.ncore + self._scf.ncas
@@ -149,12 +149,12 @@ class RT_CAS_RAS:
         return np.matmul(self.orth.conj().T,np.matmul(self._h1e_AO,self.orth)).astype(np.complex128)
 
     def get_h2e_mo(self):
-        mat1 = np.einsum('ap,pqrs,qb',self.mo_to_ao.conj().T,self._h2e_AO,self.mo_to_ao)
+        mat1 = np.einsum('ap,pqrs,qb',self.mo_to_ao.conj().T,self._h2e_AO,self.mo_to_ao).astype(np.complex128)
         return np.einsum('cr,abrs,sd',self.mo_to_ao.conj().T,mat1,self.mo_to_ao).astype(np.complex128)
     
     # h1e in orthogonal AO basis is currently not used
     def get_h2e_orth(self):
-        mat1 = np.einsum('ap,pqrs,qb',self.orth.conj().T,self._h2e_AO,self.orth)
+        mat1 = np.einsum('ap,pqrs,qb',self.orth.conj().T,self._h2e_AO,self.orth).astype(np.complex128)
         return np.einsum('cr,abrs,sd',self.orth.conj().T,mat1,self.orth).astype(np.complex128)
     
     # I don't use this, left to keep consistent with rt_scf class
@@ -167,7 +167,9 @@ class RT_CAS_RAS:
     
     # Returns density matrix in AO basis
     def get_den_ao(self):
-        corr1RDMcas = fci_mod.get_corr1RDM(self._scf.ci, self._scf.ncas, self._scf.nelecas)
+        corr1RDMcas, corr2RDMcas = fci_mod.get_corr12RDM(self._scf.ci, self._scf.ncas, self._scf.nelecas)
+        self.casrdm1 = np.copy(corr1RDMcas) # Stores active space 1rdm in MO basis
+        self.casrdm2 = np.copy(corr2RDMcas) # Stores active space 2rdm in MO basis
         corr1RDMmo = np.zeros((self.numP,self.numP)).astype(np.complex128)
         for a in range(self._scf.ncore):
             corr1RDMmo[a][a] = 2
@@ -176,9 +178,13 @@ class RT_CAS_RAS:
                 corr1RDMmo[a+self._scf.ncore][b+self._scf.ncore] = corr1RDMcas[a][b]
         return(np.matmul(self.ao_to_mo.conj().T,np.matmul(corr1RDMmo,self.ao_to_mo)))
     
+    # MO to OAO transformation matrix
+    def get_mo_to_orth(self):
+        return(self.orth.conj().T @ self.mo_to_ao)
+    
     # Expresses molecular orbital in OAO basis
     def mo_unitvec_to_orth(self,mo):
-        return self.mo_to_orth[:][mo]
+        return self.mo_to_orth[:,mo]
     
     # Adds some time-dependent term to the list of time-dependent Hamiltonian terms
     def add_potential(self, *args):
@@ -194,25 +200,27 @@ class RT_CAS_RAS:
     def get_q_orth(self):
         toReturn = np.eye(self.no)
         for p in range(self.numP):
-            #p_orth = self.mo_to_orth @ self.getMoVec(p)
-            p_orth = self.mo_to_orth[:][p]
-            toReturn = toReturn - np.matmul(p_orth,p_orth.conj().T)
+            p_orth = self.mo_unitvec_to_orth(p)
+            toReturn = toReturn - np.outer(p_orth.conj(),p_orth)
         return toReturn
     
     # Gets Wab operator in OAO basis as defined in Phys. Rev. A 88, 023402
     # Note that this corresponds to p=a and q=b in eq 32
     def get_w_orth(self,a,b):
-        toReturn = np.zeros((self.numP,self.numP))
+        toReturn = np.zeros((self.numP,self.numP),dtype=np.complex128)
         for i in range(self.numP):
             for j in range(self.numP):
                 toReturn[i][j] = self._h2e_mo[i][j][a][b]
         return np.matmul(self.orth_to_mo.conj().T,np.matmul(toReturn,self.orth_to_mo))
     
-    # Acts Q operator (as defined in Phys. Rev. A 89, 063416) on the uth core molecular orbital
+    # Returns X[q,u] for the X-matrix expressed in the MO basis
+    # Corresponds to eq 36 of Phys. Rev. A 88, 023402
+    # In group notes, corresponds to Xqu on page 9 of td_cas/td_casscf_notes
     def getQU(self,qn,un,dBarInv):
+        toReturn = self._h1e_mo[qn+self._scf.ncore][un]
         for k in range(self._scf.ncas):
             kMO = k+self._scf.ncore
-            prefac = dBarInv[qn,kMO]
+            prefac = dBarInv[qn,k]
             toAdd = 0
             for v in range(self._scf.ncore):
                 toAdd = toAdd + 2*((2*self._h2e_mo[v][v][kMO][un])-self._h2e_mo[v][un][kMO][v])
@@ -231,38 +239,39 @@ class RT_CAS_RAS:
         return toReturn
 
     # Get X-matrix for cas/ras-SCF. Acts as time evolution of MO coefficient matrix. Equal to R-Matrix in Phys. Rev. A 88, 023402
+    # Projects out virtual orbitals. See group notes, td_cas/td_casscf++_projecting_out_virtual
     def get_x(self):
-        toReturn = np.zeros((self.numP,self.numP))
+        toReturn = np.zeros((self.numP,self.numP),dtype=np.complex128)
         if self._castype == 'CASCI':
             return toReturn
         else:
             qMat = self.get_q_orth()
             dInv = inv(self.casrdm1)
-            dBar = 2*np.eye(self._scf.ncas)
+            dBar = 2*np.eye(self._scf.ncas,dtype=np.complex128)
             for k in range(self._scf.ncas):
                 for l in range(self._scf.ncas):
                     dBar[k][l] = dBar[k][l]-self.casrdm1[k][l]
             dBarInv = inv(dBar)
             for u in range(self._scf.ncore):
-                uOrth = self.mo_unitvec_to_orth(u)
+                uOrth = self.mo_unitvec_to_orth(u).T
                 virt = np.matmul(self._h1e_orth,uOrth)
                 for v in range(self._scf.ncore):
-                    virt = virt + (2*np.matmul(self.get_w_orth(v,v),uOrth)) - (np.matmul(self.get_w_orth(v,u),self.mo_unitvec_to_orth(v)))
+                    virt = virt + (2*np.matmul(self.get_w_orth(v,v),uOrth)) - (np.matmul(self.get_w_orth(v,u),self.mo_unitvec_to_orth(v).T))
                 for l in range(self._scf.ncas):
                     for k in range(self._scf.ncas):
                         lMO = l+self._scf.ncore
                         kMO = k+self._scf.ncore
-                        virt = virt + (self.casrdm1[k,l]*(np.matmul(self.get_w_orth(lMO,kMO),uOrth)-(np.matmul(self.get_w_orth(lMO,u),self.mo_unitvec_to_orth(kMO))/2)))
+                        virt = virt + (self.casrdm1[k,l]*(np.matmul(self.get_w_orth(lMO,kMO),uOrth)-(np.matmul(self.get_w_orth(lMO,u),self.mo_unitvec_to_orth(kMO).T)/2)))
                 aoCol = np.matmul(qMat,virt)
                 for q in range(self._scf.ncas):
                     qMO = q+self._scf.ncore
-                    aoCol = aoCol + (self.getQU(qMO,u,dBarInv)*self.mo_unitvec_to_orth(qMO))
+                    aoCol = aoCol + (self.getQU(q,u,dBarInv)*self.mo_unitvec_to_orth(qMO).T)
                 moCol = np.matmul(self.orth_to_mo,aoCol)
                 for index in range(self.numP):
-                    toReturn[index,u] = moCol[index,0]
+                    toReturn[index,u] = moCol[index]
             for q in range(self._scf.ncas):
                 qMO = q + self._scf.ncore
-                qOrth = self.mo_unitvec_to_orth(qMO)
+                qOrth = self.mo_unitvec_to_orth(qMO).T
                 virt = np.matmul(self._h1e_orth,qOrth)
                 for j in range(self._scf.ncas):
                     jMO = j + self._scf.ncore
@@ -271,27 +280,27 @@ class RT_CAS_RAS:
                         for l in range(self._scf.ncas):
                             for m in range(self._scf.ncas):
                                 mMO = m + self._scf.ncore
-                                virt = virt + (self.casrdm2[l][m][j][k]*dInv[l][q]*np.matmul(self.get_w_orth(jMO,kMO),self.mo_unitvec_to_orth(mMO)))
+                                virt = virt + (self.casrdm2[l][m][j][k]*dInv[l][q]*np.matmul(self.get_w_orth(jMO,kMO),self.mo_unitvec_to_orth(mMO).T))
                 for u in range(self._scf.ncore):
-                    virt = virt + (2*np.matmul(self.get_w_orth(u,u),qOrth)) - np.matmul(self.get_w_orth(u,qMO),self.mo_unitvec_to_orth(u))
+                    virt = virt + (2*np.matmul(self.get_w_orth(u,u),qOrth)) - np.matmul(self.get_w_orth(u,qMO),self.mo_unitvec_to_orth(u).T)
                 aoCol = np.matmul(qMat,virt)
                 for u in range(self._scf.ncore):
-                    aoCol = aoCol + (self.getQU(qMO,u,dBarInv).conjugate()*self.mo_unitvec_to_orth(u))
+                    aoCol = aoCol + (self.getQU(q,u,dBarInv).conjugate()*self.mo_unitvec_to_orth(u).T)
                 moCol = np.matmul(self.orth_to_mo,aoCol)
                 for index in range(self.numP):
-                    toReturn[index,qMO] = moCol[index,0]
+                    toReturn[index,qMO] = moCol[index]
             return toReturn
     
     # Returns active space constant terms and 1e and 2e Hamiltonians
     # Analogous to final result on page 12 of group's dmet/dmet_original_jctc notes (cannot find equation in J. Chem. Theory Comput. 2013, 9, 3, 1428–1432)
     def get_embH(self,x):
         h1 = self._h1e_mo - x
-        Econst = 0
+        Econst = 0.0
         for e in range(self._scf.ncore):
             Econst = Econst + (2*h1[e,e])
             for f in range(self._scf.ncore):
                 Econst = Econst + (2*self._h2e_mo[e][e][f][f]) - self._h2e_mo[e][f][f][e]
-        h1Mat = np.zeros((self._scf.ncas,self. _scf.ncas))
+        h1Mat = np.zeros((self._scf.ncas,self. _scf.ncas),dtype=np.complex128)
         for a in range(self._scf.ncas):
             for b in range(self._scf.ncas):
                 aMO = a+self._scf.ncore
@@ -299,7 +308,7 @@ class RT_CAS_RAS:
                 h1Mat[a,b] = h1[aMO,bMO]
                 for e in range(self._scf.ncore):
                     h1Mat[a,b] = h1Mat[a,b] + (2*self._h2e_mo[bMO][aMO][e][e]) - self._h2e_mo[bMO][e][e][aMO]
-        h2Mat = np.zeros((self._scf.ncas,self. _scf.ncas,self._scf.ncas,self. _scf.ncas))
+        h2Mat = np.zeros((self._scf.ncas,self. _scf.ncas,self._scf.ncas,self. _scf.ncas),dtype=np.complex128)
         for a in range(self._scf.ncas):
             aMO = a+self._scf.ncore
             for b in range(self._scf.ncas):

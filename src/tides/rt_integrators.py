@@ -1,7 +1,5 @@
 import numpy as np
-from scipy.linalg import expm, ishermitian
-from pyscf.fci.cistring import make_strings
-from pyscf import mcscf
+from scipy.linalg import expm
 from tides import applyham_pyscf as applyham_pyscf
 from tides import fci_mod as fci_mod
 import sys
@@ -121,11 +119,13 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
 
     # Call to update MO coefficient at new time step
     def updateMO(moNew):
-        rt_cr.ao_to_mo = np.copy(moNew)
-        rt_cr.mo_to_ao = rt_cr.get_mo_to_ao()
+        rt_cr.mo_to_ao = np.copy(moNew)
+        rt_cr.ao_to_mo = rt_cr.get_ao_to_mo()
         rt_cr._scf.mo_coeff[:,:rt_cr.numP] = np.copy(rt_cr.mo_to_ao)
         rt_cr._h1e_mo = rt_cr.get_h1e_mo()
         rt_cr._h2e_mo = rt_cr.get_h2e_mo()
+        rt_cr.mo_to_orth = rt_cr.get_mo_to_orth()
+        rt_cr.orth_to_mo = rt_cr.mo_to_orth.conj().T
 
     # Call to update Hamiltonian at new time step
     def updateHam():
@@ -140,15 +140,15 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
     reci0 = np.copy(rt_cr._scf.ci.real)
     imci0 = np.copy(rt_cr._scf.ci.imag)
     c0 = np.copy(rt_cr._scf.ci)
-    mo0 = np.copy(rt_cr.ao_to_mo)
+    mo0 = np.copy(rt_cr.mo_to_ao)
     
     # k1 = f(t0,y0)
     ck1 = (-1j*applyham_pyscf.apply_ham_pyscf_check(reci0,h1Act,h2Act,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e0-eShift))+(applyham_pyscf.apply_ham_pyscf_check(imci0,h1Act,h2Act,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e0-eShift))
-    rk1 = -1j*np.matmul(x_mat,rt_cr.ao_to_mo)
+    rk1 = -1j*np.matmul(rt_cr.mo_to_ao,x_mat)
 
     # c1 and mo1 represent y0 + k1*timestep/2
     c1 = rt_cr._scf.ci + (rt_cr.timestep*ck1/2)
-    mo1 = rt_cr.ao_to_mo +(rt_cr.timestep*rk1/2)
+    mo1 = rt_cr.mo_to_ao +(rt_cr.timestep*rk1/2)
 
     # Update system
     if rt_cr._castype == 'CASSCF':
@@ -165,7 +165,7 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
 
     # k2 = f(t0 + timestep/2,y0 + k1*timestep/2)
     ck2 = (-1j*applyham_pyscf.apply_ham_pyscf_check(reci1,h1a2,h2a2,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e2-eShift))+(applyham_pyscf.apply_ham_pyscf_check(imci1,h1a2,h2a2,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e2-eShift))
-    rk2 = -1j*np.matmul(x2,rt_cr.ao_to_mo)
+    rk2 = -1j*np.matmul(rt_cr.mo_to_ao,x2)
 
     # c2 and mo2 represent y0 + k2*timestep/2
     c2 = c0 + (rt_cr.timestep*ck2/2)
@@ -183,7 +183,7 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
 
     # k3 = f(t0 + timestep/2,y0 + k2*timestep/2)
     ck3 = (-1j*applyham_pyscf.apply_ham_pyscf_check(reci2,h1a3,h2a3,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e3-eShift))+(applyham_pyscf.apply_ham_pyscf_check(imci2,h1a3,h2a3,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e3-eShift))
-    rk3 = -1j*np.matmul(x3,rt_cr.ao_to_mo)
+    rk3 = -1j*np.matmul(rt_cr.mo_to_ao,x3)
 
     # c3 and mo3 represent y0 + k3*timestep
     c3 = c0 + (rt_cr.timestep*ck3)
@@ -204,7 +204,7 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
 
     # k4 = f(t0 + timestep,y0 + k3*timestep)
     ck4 = (-1j*applyham_pyscf.apply_ham_pyscf_check(reci3,h1a4,h2a4,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e4-eShift))+(applyham_pyscf.apply_ham_pyscf_check(imci3,h1a4,h2a4,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e4-eShift))
-    rk4 = -1j*np.matmul(x4,rt_cr.ao_to_mo)
+    rk4 = -1j*np.matmul(rt_cr.mo_to_ao,x4)
 
     # y1 = (timestep/6)(k1 + 2*k2 + 2*k3 + k4)
     cf = c0 + ((rt_cr.timestep/6)*(ck1+(2*ck2)+(2*ck3)+ck4))
@@ -214,6 +214,7 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
     if rt_cr._castype == 'CASSCF':
         updateMO(mof)
     rt_cr._scf.ci = np.copy(cf)
+    #print(cf)
     rt_cr.den_ao = rt_cr.get_den_ao()
 
     # Collect output file checks
@@ -232,11 +233,19 @@ def rk4cr(rt_cr,fo,fs,fc,eShift):
             )
     output[2] = np.real(np.sum(np.diag(rt_cr.den_ao@rt_cr.ovlp))) # Gives number of electrons. Shouldn't ever change.
     print(output[2])
+    
+    # Print MO occupation numbers for monitoring purposes
+    corr1RDMmo = np.zeros((rt_cr.numP,rt_cr.numP)).astype(np.complex128)
+    for a in range(rt_cr._scf.ncore):
+        corr1RDMmo[a][a] = 2
+    for a in range(rt_cr._scf.ncas):
+        for b in range(rt_cr._scf.ncas):
+            corr1RDMmo[a+rt_cr._scf.ncore][b+rt_cr._scf.ncore] = rt_cr.casrdm1[a][b]
+    print(np.real(np.diag(corr1RDMmo)))
 
     # corrdens represents AO occupation
     diagcorr1RDM = np.real(np.diag(rt_cr.den_ao@rt_cr.ovlp))
     corrdens = np.copy(diagcorr1RDM)
-    
     corrdens = np.insert(corrdens, 0, rt_cr.current_time)
     
     np.savetxt(fo, output.reshape(1, output.shape[0]), fs)

@@ -2,7 +2,6 @@ import numpy as np
 from tides import rt_observables, rt_integrators
 from tides import applyham_pyscf as applyham_pyscf
 from tides.rt_utils import update_chkfile, print_info
-from scipy.linalg import inv
 
 # Real-Time Propagation for CAS/RAS CI/SCF
 
@@ -18,14 +17,11 @@ def propagate(rt_cr,mo_coeff_print):
     rt_cr._h2e_orth = rt_cr.get_h2e_orth()
     rt_cr._h1e_mo = rt_cr.get_h1e_mo()
     rt_cr._h2e_mo = rt_cr.get_h2e_mo()
+    rt_cr.mo_to_orth = rt_cr.get_mo_to_orth()
+    rt_cr.orth_to_mo = rt_cr.mo_to_orth.conj().T
 
-    # The following code will correct the CI Hamiltonian so that the ground state is zero at t=0, improving numerical instability
-    ci0 = np.zeros(np.shape(rt_cr._scf.ci))
-    ci0[0][0] = 1
-    x_mat = rt_cr.get_x()
-    e1, h1a1, h2a1 = rt_cr.get_embH(x_mat)
-    applied = applyham_pyscf.apply_ham_pyscf_check(ci0,h1a1,h2a1,rt_cr._scf.nelecas[0],rt_cr._scf.nelecas[1],rt_cr._scf.ncas,e1).astype(np.float64)
-    eShift = applied[0][0]
+    # In the future, will provide option to shift CI Hamiltonian by CI ground state energy
+    eShift = 0.0
     
     file_output = open(rt_cr.outName, "wb")
     file_corrdens = open(rt_cr.corName, "wb")
