@@ -55,7 +55,6 @@ def magnus_step(rt_scf):
     rt_scf.den_ao = rt_scf._scf.make_rdm1(mo_occ=rt_scf.occ)
     rt_scf._fock_orth = rt_scf.get_fock_orth(rt_scf.den_ao)
 
-
 def magnus_interpol(rt_scf):
     '''
     C'(t+dt) = U(t+0.5dt)C'(t)
@@ -66,42 +65,45 @@ def magnus_interpol(rt_scf):
     3. Build new F'(t+dt), interpolate new F'(t+0.5dt)
     4. Repeat propagation and interpolation until convergence
     '''
+
     mo_coeff_orth = rt_scf.rotate_coeff_to_orth(rt_scf._scf.mo_coeff)
     fock_orth_p12dt = 2 * rt_scf._fock_orth - rt_scf._fock_orth_n12dt
 
     # Update time, mol is updated here if rt_scf is an Ehrenfest obj
     rt_scf.update_time()
 
-    hermitian = len(rt_scf._potential) == 0
-
     for iteration in range(rt_scf.magnus_maxiter):
-        u = _unitary_propagator(fock_orth_p12dt, rt_scf.timestep, hermitian=hermitian)
+        u = expm(-1j*rt_scf.timestep*fock_orth_p12dt)
 
         mo_coeff_orth_pdt = np.matmul(u, mo_coeff_orth)
         mo_coeff_ao_pdt = rt_scf.rotate_coeff_to_ao(mo_coeff_orth_pdt)
         den_ao_pdt = rt_scf._scf.make_rdm1(mo_coeff=mo_coeff_ao_pdt,
                                           mo_occ=rt_scf.occ)
+        #rt_scf.current_time += rt_scf.timestep
         fock_orth_pdt = rt_scf.get_fock_orth(den_ao_pdt)
-
-        fock_orth_p12dt = 0.5 * (rt_scf._fock_orth + fock_orth_pdt)
+        #rt_scf.current_time -= rt_scf.timestep
 
         if (iteration > 0 and
-                np.linalg.norm(den_ao_pdt - den_ao_pdt_old) < rt_scf.magnus_tolerance):
+        abs(np.linalg.norm(den_ao_pdt)
+        - np.linalg.norm(den_ao_pdt_old)) < rt_scf.magnus_tolerance):
+
             rt_scf._scf.mo_coeff = mo_coeff_ao_pdt
             rt_scf.den_ao = den_ao_pdt
+            rt_scf.fock_orth = fock_orth_pdt
+            rt_scf.fock_orth_n12dt = fock_orth_p12dt
             break
+        fock_orth_p12dt = 0.5 * (rt_scf._fock_orth + fock_orth_pdt)
 
         den_ao_pdt_old = np.copy(den_ao_pdt)
         rt_scf._scf.mo_coeff = mo_coeff_ao_pdt
         rt_scf.den_ao = den_ao_pdt
 
-    if (np.linalg.norm(den_ao_pdt - den_ao_pdt_old)
+    if (abs(np.linalg.norm(den_ao_pdt) - np.linalg.norm(den_ao_pdt_old)) 
     > rt_scf.magnus_tolerance):
         rt_scf._log.error('Magnus integrator failed to converge. Increase magnus_maxiter, or decrease timestep.')
-    rt_scf._log.debug1(f'Time step converged on Magnus iteration: {iteration}')
+    rt_scf._log.debug1(f'Time step converged on Magnus interation: {iteration}')
     rt_scf._fock_orth = fock_orth_pdt
     rt_scf._fock_orth_n12dt = fock_orth_p12dt
-
 
 def etrs(rt_scf):
     '''
