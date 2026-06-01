@@ -29,24 +29,6 @@ def _unitary_propagator(fock_orth, dt, hermitian=True):
         return expm(-1j * dt * fock_orth)
 
 
-def _diis_extrapolate(fock_history, resid_history):
-    '''
-    Pulay DIIS extrapolation for midpoint Fock convergence acceleration.
-    Solves: min ||sum_i c_i * r_i||  subject to  sum_i c_i = 1
-    Returns the extrapolated midpoint Fock matrix.
-    '''
-    nd = len(fock_history)
-    B = np.zeros((nd + 1, nd + 1))
-    for i in range(nd):
-        for j in range(nd):
-            B[i, j] = np.dot(resid_history[i], resid_history[j])
-    B[nd, :nd] = -1.0
-    B[:nd, nd] = -1.0
-    rhs = np.zeros(nd + 1)
-    rhs[nd] = -1.0
-    coeffs = np.linalg.solve(B, rhs)[:nd]
-    return sum(c * f for c, f in zip(coeffs, fock_history))
-
 
 def magnus_step(rt_scf):
     '''
@@ -83,13 +65,7 @@ def magnus_interpol(rt_scf):
     2. Propagate
     3. Build new F'(t+dt), interpolate new F'(t+0.5dt)
     4. Repeat propagation and interpolation until convergence
-
-    Optional DIIS acceleration: set rt_scf.magnus_diis = True
-    Optional DIIS history size:  set rt_scf.magnus_diis_space (default 6)
     '''
-    use_diis   = getattr(rt_scf, 'magnus_diis', False)
-    n_diis     = getattr(rt_scf, 'magnus_diis_space', 6)
-
     mo_coeff_orth = rt_scf.rotate_coeff_to_orth(rt_scf._scf.mo_coeff)
     fock_orth_p12dt = 2 * rt_scf._fock_orth - rt_scf._fock_orth_n12dt
 
@@ -97,7 +73,6 @@ def magnus_interpol(rt_scf):
     rt_scf.update_time()
 
     hermitian = len(rt_scf._potential) == 0
-    diis_focks, diis_resids = [], []
 
     for iteration in range(rt_scf.magnus_maxiter):
         u = _unitary_propagator(fock_orth_p12dt, rt_scf.timestep, hermitian=hermitian)
@@ -108,30 +83,13 @@ def magnus_interpol(rt_scf):
                                           mo_occ=rt_scf.occ)
         fock_orth_pdt = rt_scf.get_fock_orth(den_ao_pdt)
 
-        fock_new_p12dt = 0.5 * (rt_scf._fock_orth + fock_orth_pdt)
+        fock_orth_p12dt = 0.5 * (rt_scf._fock_orth + fock_orth_pdt)
 
         if (iteration > 0 and
                 np.linalg.norm(den_ao_pdt - den_ao_pdt_old) < rt_scf.magnus_tolerance):
             rt_scf._scf.mo_coeff = mo_coeff_ao_pdt
             rt_scf.den_ao = den_ao_pdt
             break
-
-        if use_diis:
-            resid = (fock_new_p12dt - fock_orth_p12dt).ravel()
-            diis_focks.append(fock_new_p12dt)
-            diis_resids.append(resid)
-            if len(diis_focks) > n_diis:
-                diis_focks.pop(0)
-                diis_resids.pop(0)
-            if len(diis_focks) >= 2:
-                try:
-                    fock_orth_p12dt = _diis_extrapolate(diis_focks, diis_resids)
-                except np.linalg.LinAlgError:
-                    fock_orth_p12dt = fock_new_p12dt
-            else:
-                fock_orth_p12dt = fock_new_p12dt
-        else:
-            fock_orth_p12dt = fock_new_p12dt
 
         den_ao_pdt_old = np.copy(den_ao_pdt)
         rt_scf._scf.mo_coeff = mo_coeff_ao_pdt
