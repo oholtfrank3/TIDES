@@ -82,8 +82,9 @@ def _check_observables(rt_scf):
         rt_scf.hirshfeld = False
 
     ### For whatever reason, the dip_moment call for GHF and GKS has arg name 'unit_symbol' instead of 'unit'
-    if rt_scf._scf.istype('GHF') | rt_scf._scf.istype('GKS'):
-        rt_scf._observables_functions['dipole'][0] = _temp_get_dipole
+    if rt_scf._scf.__class__.__name__ != 'CASCI' and rt_scf._scf.__class__.__name__ != 'CASSCF':
+        if rt_scf._scf.istype('GHF') | rt_scf._scf.istype('GKS'):
+            rt_scf._observables_functions['dipole'][0] = _temp_get_dipole
 
     # mo_occ_separate should be used for spin unrestricted when use wants to know specifically alpha vs. beta occupations
     if rt_scf.observables['mo_occ_separate']:
