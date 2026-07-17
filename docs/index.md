@@ -1,4 +1,4 @@
-![TiDES](assets/logo.png){ width="450" }
+# TiDES
 
 **Ti**me-**D**ependent **E**lectronic **S**tructure — an open-source package for
 real-time electronic structure simulations, built on top of

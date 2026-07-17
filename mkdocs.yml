@@ -16,11 +16,13 @@ theme:
   palette:
     - scheme: default
       primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Dark mode
     - scheme: slate
       primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Light mode

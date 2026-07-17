@@ -1,19 +1,31 @@
-:root {
+[data-md-color-primary="custom"] {
   --md-primary-fg-color:        #003057;
   --md-primary-fg-color--light: #12496f;
   --md-primary-fg-color--dark:  #001f3a;
+  --md-primary-bg-color:        #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+}
+[data-md-color-accent="custom"] {
   --md-accent-fg-color:         #B3A369;
-  --md-typeset-a-color:         #003057;
+  --md-accent-fg-color--transparent: #B3A3691a;
+}
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #003057;
 }
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #001f3a;
-  --md-accent-fg-color:  #B3A369;
-  --md-typeset-a-color:  #B3A369;
+  --md-typeset-a-color: #B3A369;
+}
+
+/* Logo */
+.md-header__button.md-logo {
+  padding: 0;
+  margin-right: 0.5rem;
 }
 .md-header__button.md-logo img {
-  height: 1.8rem;
+  height: 2.2rem;
   width: auto;
-  background: white;
-  border-radius: 3px;
-  padding: 2px 4px;
+  filter: invert(1) brightness(1.4);
+}
+[data-md-color-scheme="default"] .md-typeset img[alt="TiDES"] {
+  max-width: 420px;
 }
