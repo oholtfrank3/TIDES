@@ -1,4 +1,4 @@
-site_name: TiDES
+site_name: ' '
 site_description: Real-time time-dependent electronic structure, built on PySCF
 site_url: https://oholtfrank3.github.io/TIDES
 repo_url: https://github.com/jskretchmer/TIDES
