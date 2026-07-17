@@ -6,7 +6,10 @@ repo_name: oholtfrank3/TIDES
 
 theme:
   name: material
-  logo: assets/logo.png
+  # Light-on-navy variant for the header. The plain logo.png is dark lettering,
+  # which needs no treatment on a light browser tab but is invisible on the
+  # navy header.
+  logo: assets/logo-header.png
   favicon: assets/logo.png
   features:
     - navigation.sections
