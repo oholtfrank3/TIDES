@@ -12,10 +12,8 @@ single trajectory.
 ## The script
 
 ```python
-import numpy as np
-from pyscf import gto, scf, dft
-from tides import rt_scf
-from tides.rt_vapp import ElectricField
+from pyscf import gto, dft
+from tides import RT_SCF, ElectricField
 
 # 1. Build mol
 mol = gto.M(
@@ -34,17 +32,17 @@ rks.xc = 'PBE0'
 rks.kernel()
 
 # 4. Wrap it in RT_SCF
-rt_scf = rt_scf.RT_SCF(rks, 0.2, 200)
+rt = RT_SCF(rks, 0.2, 200)
 
 # 5. Declare observables
-rt_scf.observables.update(dipole=True)
+rt.observables.update(dipole=True)
 
 # 6. Define and add the external potential
 delta_field = ElectricField('delta', [0.0001, 0.0001, 0.0001])
-rt_scf.add_potential(delta_field)
+rt.add_potential(delta_field)
 
 # 7. Propagate
-rt_scf.kernel()
+rt.kernel()
 ```
 
 Run it:
@@ -66,7 +64,7 @@ real-time calculation. Here it's restricted Kohn-Sham with PBE0.
 ### Propagation parameters
 
 ```python
-rt_scf.RT_SCF(rks, 0.2, 200)
+RT_SCF(rks, 0.2, 200)
 ```
 
 The positional arguments are `(scf_object, timestep, max_time)`, both in atomic
@@ -85,7 +83,7 @@ The timestep is fixed for the whole run. Two optional parameters worth knowing:
 ### Observables
 
 ```python
-rt_scf.observables.update(dipole=True)
+rt.observables.update(dipole=True)
 ```
 
 Nothing is computed unless you ask for it. For a spectrum you need the dipole.
@@ -109,12 +107,12 @@ spectrum.
 
 If you want polarization-resolved spectra instead, run three separate
 calculations with the field along each axis — see
-[`examples/ExamplesFromOriginalTiDESPaper/UV-Vis/`](https://github.com/jskretchmer/TIDES/tree/main/examples/ExamplesFromOriginalTiDESPaper/UV-Vis),
+[`examples/ExamplesFromOriginalTiDESPaper/UV-Vis/`](https://github.com/oholtfrank3/TIDES/tree/docs/examples/ExamplesFromOriginalTiDESPaper/UV-Vis),
 which does exactly this for benzene.
 
 ### Propagating
 
-`rt_scf.kernel()` runs the dynamics and writes observables to the output.
+`rt.kernel()` runs the dynamics and writes observables to the output.
 
 ## Working up the result
 
@@ -128,7 +126,7 @@ python Workup_Water_RKS_UV-Vis.py
 
 This produces `Water_RKS_UV-Vis_Dipole.png` (the time-domain signal) and
 `Water_RKS_UV-Vis_Spectrum.png` (the frequency-domain spectrum). The workup
-scripts use `tides.parse_rt` to read the output file — a useful entry point if
+scripts use `tides.analysis.parse_rt` to read the output file — a useful entry point if
 you want to do your own analysis.
 
 ## Where to go next

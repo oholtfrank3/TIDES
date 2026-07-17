@@ -1,8 +1,8 @@
-site_name: ' '
+site_name: TiDES
 site_description: Real-time time-dependent electronic structure, built on PySCF
 site_url: https://oholtfrank3.github.io/TIDES
-repo_url: https://github.com/jskretchmer/TIDES
-repo_name: jskretchmer/TIDES
+repo_url: https://github.com/oholtfrank3/TIDES
+repo_name: oholtfrank3/TIDES
 
 theme:
   name: material
@@ -11,6 +11,7 @@ theme:
   features:
     - navigation.sections
     - navigation.top
+    - navigation.indexes
     - content.code.copy
     - search.suggest
   palette:
@@ -36,10 +37,17 @@ plugins:
       handlers:
         python:
           paths: [src]
+          options:
+            show_root_heading: true
+            show_source: true
+            members_order: source
+            heading_level: 3
 
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.highlight:
@@ -59,4 +67,21 @@ nav:
   - Getting Started:
       - Installation: getting-started/installation.md
       - First Calculation: getting-started/first-calculation.md
+      - Running on HPC: getting-started/hpc.md
+  - User Guide:
+      - Propagation & Integrators: user-guide/integrators.md
+      - Observables: user-guide/observables.md
+      - External Potentials: user-guide/potentials.md
+      - Spectroscopy: user-guide/spectroscopy.md
+      - Ehrenfest Dynamics: user-guide/ehrenfest.md
+      - Relativistic Methods: user-guide/relativistic.md
+      - CAS/RAS Dynamics: user-guide/cas-ras.md
+      - GPU Acceleration: user-guide/gpu.md
+      - Fragments & NOSCF: user-guide/fragments.md
+      - Restarts & Chkfiles: user-guide/restarts.md
+  - Customization:
+      - Custom Observables: customization/observables.md
+      - Custom Potentials: customization/potentials.md
+  - Examples: examples.md
   - API Reference: api/reference.md
+  - Cite: cite.md

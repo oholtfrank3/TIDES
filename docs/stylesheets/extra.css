@@ -29,3 +29,10 @@
 [data-md-color-scheme="default"] .md-typeset img[alt="TiDES"] {
   max-width: 420px;
 }
+
+/* The logo is already a TiDES wordmark, so the site name would read twice in
+   the header. site_name stays set for browser titles and search; it is only
+   hidden here. The second topic (the scrolled page title) is left alone. */
+.md-header__topic:first-child .md-ellipsis {
+  display: none;
+}

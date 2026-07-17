@@ -15,7 +15,11 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install mkdocs-material "mkdocstrings[python]"
-      - run: mkdocs build
+      # mkdocstrings imports the package to read docstrings. Without TiDES and
+      # PySCF installed, every ::: directive renders nothing and the API
+      # Reference page builds empty rather than failing.
+      - run: pip install .
+      - run: mkdocs build --strict
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
