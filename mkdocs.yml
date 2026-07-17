@@ -15,15 +15,18 @@ theme:
     - search.suggest
   palette:
     - scheme: default
-      primary: teal
+      primary: custom
       toggle:
         icon: material/brightness-7
         name: Dark mode
     - scheme: slate
-      primary: teal
+      primary: custom
       toggle:
         icon: material/brightness-4
         name: Light mode
+
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search
